@@ -42,47 +42,61 @@ like *Strong lead*, *Contested*, and *Weak*.
 
 ## Quick start
 
+One command installs the skill for Claude Code, Hermes Agent, and pi.
+The copies are independent of this repo. An edit here does not change an
+installed copy, and a local edit does not update anyone else's install.
+Updates arrive with `npx skills update -g`.
+
 ```bash
-git clone https://github.com/tomkabel/tiltrank.git
-cd tiltrank
-ln -s "$PWD/.claude/skills/tiltrank" ~/.claude/skills/tiltrank
+npx skills add tomkabel/tiltrank --skill tiltrank -g -a claude-code hermes-agent pi --copy -y
 ```
 
-That's the whole install for Claude Code. Then ask your agent to choose between
-some options:
+That's the install. Then ask your agent to choose between some options:
 
 > Pick a queue for the job runner: Redis streams, RabbitMQ, or Postgres `SKIP LOCKED`. We can't add new infra.
 
-The skill triggers by itself. You can also call it with `/tiltrank`, or
-add `/panel` to force a second-opinion review.
+The skill triggers by itself. You can also call it with `/tiltrank`.
+`/panel` is a pi extension command, not a Claude Code or Hermes command.
+Use it only after the pi extension is installed.
 
-<details>
-<summary><b>Hermes Agent and pi install</b></summary>
+The command pins the skills CLI's own lockfile under `~/.agents/`.
+Verified with skills CLI 1.7.4. There is no version flag. Read that lockfile
+before you call this reproducible. Do not run it if you cannot accept a write
+to that file.
 
-<br>
+### If the command fails
 
-**Hermes Agent**: register the directory instead of symlinking it. Hermes'
-skill-editing tools don't follow symlinked directories:
+Hermes, only if you did not use the `npx` command above: add `~/.agents/skills`
+to `skills.external_dirs` by editing the list. Do not assign that key with
+`hermes config set`. That replaces every entry, and a path that does not exist
+is skipped with no error, so a typo looks like a successful install that did
+nothing. If you previously registered this clone in that list, remove that
+entry. Hermes loads `~/.hermes/skills/` before `external_dirs`, so a copied
+install is what loads; leaving the clone entry in place does not keep the repo
+as the source.
+
+pi's extension is a separate install, and this repo is not on the pi package
+registry. `pi install` of this repo's root is the wrong directory. The pi
+extension lives in `extensions/`. pi on this machine did not run on 2026-11-01
+(`pi --version` exits `MODULE_NOT_FOUND`). The skills CLI's `pi` agent copies
+into `~/.agents/skills/`, not `~/.pi/agent/skills/`. The three-segment link
+below is the discovery path this repo verified. It was not re-checked against
+a live pi.
+
+Maintainer checkout, if you are editing this repo rather than installing a
+release:
 
 ```bash
-hermes config set skills.external_dirs '["'"$PWD"'/.claude/skills"]'
+git clone https://github.com/tomkabel/tiltrank.git
+cd tiltrank
+mkdir -p ~/.agents/skills
+ln -sfn "$PWD/.claude/skills/tiltrank" ~/.agents/skills/tiltrank
+ln -sfn ../../.agents/skills/tiltrank ~/.claude/skills/tiltrank
+ln -sfn ../../../.agents/skills/tiltrank ~/.pi/agent/skills/tiltrank
 ```
 
-**pi**: use a real directory that contains symlinks (pi's discovery won't
-descend into a symlinked directory), then install the extension that provides the
-menu:
-
-```bash
-mkdir -p ~/.agents/skills/tiltrank
-ln -sfn "$PWD/.claude/skills/tiltrank/SKILL.md" ~/.agents/skills/tiltrank/SKILL.md
-ln -sfn "$PWD/.claude/skills/tiltrank/scripts" ~/.agents/skills/tiltrank/scripts
-ln -sfn ../../.agents/skills/tiltrank ~/.pi/agent/skills/tiltrank
-pi install "$PWD"
-```
-
-Details: [`docs/porting-hermes-pi.md`](docs/porting-hermes-pi.md).
-
-</details>
+The pi link has three `..` segments. A two-segment relative link does not
+resolve. Details: [`docs/porting-hermes-pi.md`](docs/porting-hermes-pi.md).
 
 ### Requirements
 

@@ -302,16 +302,20 @@ prevent a fully literal single file:
    Claude Code and pi read in full. That is strictly more trigger surface than
    the terse form on two harnesses at no cost on the third.
 
-**Deployment layout** — one canonical repo; registration, not symlinks:
+If this section and the README disagree, the README is wrong and the contract test should have failed. Fix both in the same PR.
+
+**Deployment layout** — one canonical repo. The primary install is the README's `npx skills add` command. This section is the fallback and the scanner note, not a second quickstart.
 
 ```
-tiltrank/.claude/skills/tiltrank        (source of truth, as now)
-~/.hermes: skills.external_dirs -> .claude/skills   (config registration)
-~/.agents/skills/tiltrank                     (real dir; SKILL.md + scripts symlinked to the repo)
+tiltrank/.claude/skills/tiltrank                         (source of truth)
+~/.agents/skills/tiltrank -> that directory               (maintainer checkout)
 ~/.claude/skills/tiltrank -> ../../.agents/skills/tiltrank
 ~/.pi/agent/skills/tiltrank -> ../../../.agents/skills/tiltrank
-pi extension: pi install <path-or-git-source>       (registered, not dropped in a dir)
 ```
+
+The README used to ship a two-segment pi link (`../../.agents/skills/tiltrank` into `~/.pi/agent/skills/tiltrank`). That link does not resolve. The pi link has three `..` segments.
+
+Hermes fallback, only when the `npx` command was not used: add `~/.agents/skills` to `skills.external_dirs` by editing the list. Do not assign that key with `hermes config set`. If a clone of this repo is already in that list and the reader also runs `skills add -a hermes-agent`, remove the clone entry. Hermes loads `~/.hermes/skills/` before `external_dirs`, so the copied skill is what loads.
 
 **Global install, verified 2026-09-19** (probe: ask each CLI from `/tmp` to
 list its skills; all three now name `tiltrank`). The shared
@@ -341,9 +345,7 @@ execution. `skills.external_dirs` registration (verified working:
 run below found and executed the skill) has no such split: one config entry,
 all scanners see it, and the repo stays the single source of truth.
 
-pi supports the equivalent: `settings.json` `skills[]` pointing at external
-directories, which avoids a copy; a plain copy is acceptable if settings
-sync is undesirable (the skill is small and rubric.py is the contract).
+**Registry probe, 2026-11-01.** `hermes skills search tiltrank --source github --json` returned `[]`. `hermes skills inspect tomkabel/tiltrank` did not resolve. `hermes skills inspect tomkabel/tiltrank/tiltrank` resolved to `skills-sh/tomkabel/tiltrank/tiltrank`, and the preview was version 0.2.0, not this tree. Do not document `hermes skills install` until an inspect prints this tree. `pi --version` exited `MODULE_NOT_FOUND`. This section has no `pi install` line until that command runs. skills CLI 1.7.4 accepted `-g`, `-a`, `--skill`, `-y`, `--copy`, and `skills update -g`.
 
 **Deployment verification (Hermes)** — run live, not assumed:
 - `claude plugin validate .claude/skills` → passes (union frontmatter).
