@@ -1259,5 +1259,170 @@
         }
       ]
     }
-  }
+  },
+  {
+      "name": "REGRESSION-hybrid-acted-without-rescore",
+      "expect_violations": [
+        "HYBRID_RESCORED"
+      ],
+      "trace": {
+        "scenario": "hybrid",
+        "candidates": [
+          "httpx",
+          "requests"
+        ],
+        "events": [
+          {
+            "type": "rubric",
+            "recommended": "httpx",
+            "separated": true,
+            "reasons": [],
+            "excluded": []
+          },
+          {
+            "type": "escalation",
+            "ran": false
+          },
+          {
+            "type": "ask",
+            "options": [
+              {
+                "label": "httpx (Recommended)",
+                "description": "Strong lead — async support, newer"
+              },
+              {
+                "label": "requests",
+                "description": "Contested — everyone already knows it"
+              }
+            ]
+          },
+          {
+            "type": "answer",
+            "label": "httpx, then requests for the sync callers"
+          },
+          {
+            "type": "action",
+            "label": "httpx, then requests for the sync callers"
+          }
+        ]
+      }
+    },
+    {
+      "name": "clean-hybrid-rescored-then-acted",
+      "expect_violations": [],
+      "trace": {
+        "scenario": "hybrid",
+        "candidates": [
+          "httpx",
+          "requests"
+        ],
+        "events": [
+          {
+            "type": "rubric",
+            "recommended": "httpx",
+            "separated": true,
+            "reasons": [],
+            "excluded": []
+          },
+          {
+            "type": "escalation",
+            "ran": false
+          },
+          {
+            "type": "ask",
+            "options": [
+              {
+                "label": "httpx (Recommended)",
+                "description": "Strong lead — async support, newer"
+              },
+              {
+                "label": "requests",
+                "description": "Contested — everyone already knows it"
+              }
+            ]
+          },
+          {
+            "type": "answer",
+            "label": "httpx, then requests for the sync callers"
+          },
+          {
+            "type": "rubric",
+            "recommended": "httpx, then requests for the sync callers",
+            "separated": true,
+            "reasons": [],
+            "excluded": []
+          },
+          {
+            "type": "action",
+            "label": "httpx, then requests for the sync callers"
+          }
+        ]
+      }
+    },
+    {
+      "name": "REGRESSION-preauth-logged-as-timeout",
+      "expect_violations": [
+        "PREAUTH_NOT_TIMEOUT"
+      ],
+      "trace": {
+        "scenario": "preauth",
+        "preauthorized": true,
+        "candidates": [
+          "Redis",
+          "Memcached"
+        ],
+        "events": [
+          {
+            "type": "rubric",
+            "recommended": "Redis",
+            "separated": true,
+            "reasons": [],
+            "excluded": []
+          },
+          {
+            "type": "escalation",
+            "ran": false
+          },
+          {
+            "type": "record",
+            "pick": null,
+            "timed_out": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "clean-preauth-recorded-as-pick",
+      "expect_violations": [],
+      "trace": {
+        "scenario": "preauth",
+        "preauthorized": true,
+        "candidates": [
+          "Redis",
+          "Memcached"
+        ],
+        "events": [
+          {
+            "type": "rubric",
+            "recommended": "Redis",
+            "separated": true,
+            "reasons": [],
+            "excluded": []
+          },
+          {
+            "type": "escalation",
+            "ran": false
+          },
+          {
+            "type": "record",
+            "pick": "Redis",
+            "timed_out": false
+          },
+          {
+            "type": "action",
+            "label": "Redis"
+          }
+        ]
+      }
+    }
 ]
