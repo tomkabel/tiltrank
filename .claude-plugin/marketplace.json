@@ -1,0 +1,22 @@
+{
+  "name": "tiltrank",
+  "description": "Self-hosted marketplace for the tiltrank skill. Not Anthropic's marketplace.",
+  "owner": {
+    "name": "Tom Kristian Abel",
+    "url": "https://github.com/tomkabel"
+  },
+  "plugins": [
+    {
+      "name": "tiltrank",
+      "source": ".",
+      "description": "Score options with a weighted rubric and hand the pick to the harness ask tool.",
+      "version": "0.3.0",
+      "license": "MPL-2.0",
+      "author": {
+        "name": "Tom Kristian Abel"
+      },
+      "repository": "https://github.com/tomkabel/tiltrank",
+      "skills": ["./.claude/skills/"]
+    }
+  ]
+}

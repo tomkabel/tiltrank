@@ -64,6 +64,11 @@ Verified with skills CLI 1.7.4. There is no version flag. Read that lockfile
 before you call this reproducible. Do not run it if you cannot accept a write
 to that file.
 
+Claude Code can also install from this repo's own marketplace, which is not
+Anthropic's marketplace. The marketplace file has to be on the default branch
+first. Then run `claude plugin marketplace add tomkabel/tiltrank` and
+`/plugin install tiltrank --marketplace tomkabel/tiltrank`.
+
 ### If the command fails
 
 Hermes, only if you did not use the `npx` command above: add `~/.agents/skills`

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- A self-hosted Claude Code marketplace at `.claude-plugin/marketplace.json`. It is not Anthropic's marketplace. The entry's source is this repo, and it loads `.claude/skills/` without a second copy of `SKILL.md`.
+
 ### Security
 - Decision-log paths are contained to the working directory, or to `$TILTRANK_LOG_BASE` when set. The path must end in `.log`, the final component must not be a symlink, and the open uses `O_NOFOLLOW`.
 - Injection-shaped candidate text is flagged by `rubric.py` and recorded in the verdict and the log. A live eval reads that finding from the log, not from the agent's narration, and fails if a shell tool runs the payload.
