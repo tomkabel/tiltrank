@@ -33,6 +33,9 @@ jobs:
       - name: protocol assertions (offline fixtures)
         run: python3 .claude/skills/tiltrank/scripts/eval/check_trace.py
 
+      - name: install contract
+        run: python3 .claude/skills/tiltrank/scripts/test_install_contract.py
+
       - name: no stray imports outside the stdlib
         run: |
           python3 - <<'PY'

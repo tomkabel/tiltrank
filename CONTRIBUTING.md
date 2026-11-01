@@ -13,9 +13,12 @@ python3 .claude/skills/tiltrank/scripts/test_rubric.py
 
 # protocol-trace assertions + fixture regressions
 python3 .claude/skills/tiltrank/scripts/eval/check_trace.py
+
+# install-page contract (forbidden commands, relative links, skill paths)
+python3 .claude/skills/tiltrank/scripts/test_install_contract.py
 ```
 
-CI runs both on **Python 3.10 and 3.13**.
+CI runs the unit tests, the protocol assertions, and the install contract on **Python 3.10 and 3.13**.
 
 ## House rules
 

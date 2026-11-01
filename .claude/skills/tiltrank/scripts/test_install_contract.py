@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""The install page is a contract. These strings are the page.
+
+A reader who runs the first command must not be handed a command this repo
+has already watched fail. The forbidden list is the failure log, not a style
+guide.
+"""
+
+from __future__ import annotations
+
+import pathlib
+import re
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[4]
+README = (ROOT / "README.md").read_text()
+SKILL = (ROOT / ".claude/skills/tiltrank/SKILL.md").read_text()
+PORTING = (ROOT / "docs/porting-hermes-pi.md").read_text()
+
+
+def quickstart() -> str:
+    start = README.index("## Quick start")
+    rest = README[start + len("## Quick start"):]
+    end = rest.find("\n## ")
+    return rest[:end]
+
+
+def test_primary_command_is_skills_add() -> None:
+    section = quickstart()
+    assert "npx skills add tomkabel/tiltrank" in section
+    assert "--skill tiltrank" in section
+    assert "-g" in section
+    assert "claude-code" in section and "hermes-agent" in section and " pi" in section
+    assert "--copy" in section
+    assert section.index("npx skills add") < section.index("git clone")
+
+
+def test_known_bad_commands_are_gone() -> None:
+    section = quickstart()
+    forbidden = [
+        "hermes config set skills.external_dirs",
+        'ln -s "$PWD/.claude/skills/tiltrank" ~/.claude/skills/tiltrank',
+        'pi install "$PWD"',
+    ]
+    for snippet in forbidden:
+        assert snippet not in section, snippet
+    # The three-segment link required by test_pi_relative_link_has_three_dots
+    # contains this two-segment string after its first "../". Reject the
+    # two-segment command only when it is not that continuation.
+    bad_pi = "../../.agents/skills/tiltrank ~/.pi/agent/skills/tiltrank"
+    assert re.search(r"(?<!\.\./)" + re.escape(bad_pi), section) is None, bad_pi
+
+
+def test_pi_relative_link_has_three_dots() -> None:
+    section = quickstart()
+    assert "../../../.agents/skills/tiltrank ~/.pi/agent/skills/tiltrank" in section
+
+
+def test_skill_does_not_hardcode_install_paths() -> None:
+    assert "<category>" not in SKILL
+    assert ".hermes}/skills/" not in SKILL
+    assert ".pi/agent/skills/tiltrank/scripts/rubric.py" not in SKILL
+    assert "skill_dir" in SKILL
+    assert "CLAUDE_SKILL_DIR" in SKILL
+
+
+def test_panel_is_not_sold_as_a_claude_command() -> None:
+    section = quickstart()
+    assert "/panel" not in section.split("pi", 1)[0]
+
+
+def test_porting_doc_does_not_reintroduce_dead_pi_settings() -> None:
+    assert "skills[]` did **not** work" in PORTING or "skills[]` did not work" in PORTING
+    tail = PORTING.split("did not work", 1)[-1]
+    assert "pi supports the equivalent: `settings.json` `skills[]`" not in tail
+
+
+def test_readme_links_resolve() -> None:
+    for match in re.findall(r"\]\(([^)]+)\)", README):
+        if match.startswith("http"):
+            continue
+        path = match.split("#", 1)[0]
+        if not path:
+            continue
+        assert (ROOT / path).exists(), path
+
+
+if __name__ == "__main__":
+    failed = 0
+    for name, fn in list(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+            except Exception as exc:  # noqa: BLE001 — report every contract break
+                failed += 1
+                print(f"FAIL {name}: {exc}")
+    sys.exit(1 if failed else 0)

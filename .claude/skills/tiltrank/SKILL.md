@@ -11,7 +11,7 @@ when_to_use: |
   - User says "choose", "pick", "decide between", "which option", "help me choose"
   - User wants tradeoffs made visible before committing to a direction
   - Do NOT use for single-option decisions or trivial reversible choices
-compatibility: Requires Python >= 3.10. No packages. Works with Claude Code, Hermes Agent, or pi.
+compatibility: Requires Python >= 3.10. No packages. Works with Claude Code, Hermes Agent, or pi. The menu is the harness ask tool. `/panel` exists only as a pi extension command.
 metadata:
   origin: custom
   hermes:
@@ -144,18 +144,15 @@ Three rules on *how* to score, which matter as much as the anchors:
    default reads as a corrupt record rather than a deliberate refit, and the next
    session has no way to tell a refit from a bug.
 
-Run it. Resolve the script path from the skill's own directory — the exact
-form depends on the harness. **Take that directory from what the harness reports
-for the loaded skill** (`skill_view` returns `skill_dir`; Claude Code exposes
-`${CLAUDE_SKILL_DIR}`). The table below lists default INSTALL locations, so it is
-wrong whenever the skill was loaded from a project-local or external checkout —
-which is how this skill's canonical copy is usually reached:
+Run it. Resolve the script path from the skill's own directory, not from a guessed install path.
 
 | harness | invocation |
 |---|---|
 | Claude Code | `python3 "${CLAUDE_SKILL_DIR}/scripts/rubric.py"` — `${CLAUDE_SKILL_DIR}` resolves to this skill's directory; the heredoc form is what the pre-approval in `allowed-tools` matches, so use it as written |
-| Hermes Agent | `python3 "${HERMES_HOME:-$HOME/.hermes}/skills/<category>/tiltrank/scripts/rubric.py"` via the `terminal` tool — global skills live at a stable location, and profiles relocate via `$HERMES_HOME` automatically |
-| pi | `python3 "$HOME/.pi/agent/skills/tiltrank/scripts/rubric.py"` (or `{baseDir}/scripts/rubric.py` where `{baseDir}` is supported) via `bash` |
+| Hermes Agent | `python3 "$skill_dir/scripts/rubric.py"` via the `terminal` tool. `skill_dir` is the directory `skill_view` reports for the loaded skill. |
+| pi | `python3 "{baseDir}/scripts/rubric.py"` via `bash`, when the harness substitutes `{baseDir}`. |
+
+On Hermes, pass `skill_dir` from `skill_view` to the `terminal` tool. Do not guess a path under `~/.hermes/skills/`. On pi, prefer `{baseDir}/scripts/rubric.py`. Do not guess a path under `~/.pi/agent/skills/`.
 
 The payload contract is identical everywhere — a single JSON object on stdin.
 **Use the candidates from the user's scenario, not the labels below** — the
@@ -201,7 +198,7 @@ Escalate if **any** of these hold:
   count. Do not pattern-match a fixed phrase list — you are the language model;
   read the intent. Note the inverse too: "I don't want a second opinion" means
   don't escalate.
-- **The user typed `/panel`.** An explicit, deterministic opt-in.
+- **The user invoked the pi extension's panel command.** That command exists only after the pi extension is installed. It is not a Claude Code or Hermes command. An explicit, deterministic opt-in on pi.
 - **The blast radius is large.** Production data, a security or auth surface, an
   irreversible schema change, anything externally visible, or anything costing
   real money. When the stakes are unclear, treat them as high.
