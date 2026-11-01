@@ -88,6 +88,9 @@ jobs:
       - name: validate skill frontmatter
         run: claude plugin validate .claude/skills
 
+      - name: validate marketplace manifest
+        run: claude plugin validate . --strict
+
   extension-typecheck:
     runs-on: ubuntu-latest
     steps:
