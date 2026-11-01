@@ -15,9 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - macOS CI is a separate experimental job and is not part of the required `test` check.
 
 ### Changed
-- The README's primary install is one `npx skills add` command for Claude Code, Hermes Agent, and pi. The old symlink quickstart and the two-segment pi link are gone. `SKILL.md` resolves `rubric.py` from the loaded skill directory instead of a guessed path.
 - Relicensed from MIT to MPL-2.0 (file-level copyleft). Copies obtained under the earlier MIT license keep their MIT terms.
 - Renamed the project from `decision-picker` to `tiltrank` (repo, skill directory, pi extension and tool name). The log env var is now `$TILTRANK_LOG` (was `$DECISION_PICKER_LOG`).
+
+## [0.3.0] - 2026-11-01
+
+### Changed
+- The README's primary install is one `npx skills add` command for Claude Code, Hermes Agent, and pi. The old symlink quickstart and the two-segment pi link are gone. `SKILL.md` resolves `rubric.py` from the loaded skill directory instead of a guessed path.
 
 ## [0.2.0] - 2026-09-21
 
