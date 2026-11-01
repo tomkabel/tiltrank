@@ -28,3 +28,6 @@ dp-eval-*/
 
 # Decision records are per-project data, not source.
 .decisions.log
+
+# Local installs of the pi extension. CI uses the lockfile.
+node_modules/

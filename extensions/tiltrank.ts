@@ -30,6 +30,20 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
+const MAX_LABEL_LEN = 120;
+// Mirrors rubric.py sanitise_label. Scoring stays in the script; this only
+// stops a label or an Other answer from carrying newlines or bidi into the
+// next prompt before that re-score.
+const CONTROL_RE =
+	/[\u0000-\u001f\u007f-\u009f\u00a0\u00ad\u200b-\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]/g;
+
+function sanitiseLabel(raw: string): string {
+	let text = raw.normalize("NFC").replace(CONTROL_RE, " ").replace(/\s+/g, " ").trim();
+	if (text.length > MAX_LABEL_LEN) {
+		text = text.slice(0, MAX_LABEL_LEN - 1).trimEnd() + "…";
+	}
+	return text;
+}
 
 interface OptionItem {
 	label: string;
@@ -44,9 +58,10 @@ interface QuestionItem {
 
 function renderOptions(options: OptionItem[]): string[] {
 	// First option = recommended (position is the marker; we make it visible).
-	return options.map((o, i) =>
-		i === 0 ? `(Recommended) ${o.label}` : o.label,
-	);
+	return options.map((o, i) => {
+		const label = sanitiseLabel(o.label);
+		return i === 0 ? `(Recommended) ${label}` : label;
+	});
 }
 
 export default function (pi: ExtensionAPI) {
@@ -155,7 +170,8 @@ export default function (pi: ExtensionAPI) {
 
 			if (choice === "Other (type your own)") {
 				const own = await ctx.ui.input("Your own choice:", "free text");
-				if (!own || own.trim() === "") {
+				const ownLabel = sanitiseLabel(own ?? "");
+				if (ownLabel === "") {
 					return {
 						content: [
 							{
@@ -172,18 +188,20 @@ export default function (pi: ExtensionAPI) {
 							type: "text",
 							text: JSON.stringify({
 								timedOut: false,
-								pick: own.trim(),
+								pick: ownLabel,
 								source: "other",
 							}),
 						},
 					],
-					details: { pick: own.trim(), source: "other" },
+					details: { pick: ownLabel, source: "other" },
 				};
 			}
 
 			// Strip the "(Recommended) " prefix we added for rendering.
-			const picked =
-				choice.startsWith("(Recommended) ") ? choice.slice("(Recommended) ".length) : choice;
+			const rawPick = choice.startsWith("(Recommended) ")
+				? choice.slice("(Recommended) ".length)
+				: choice;
+			const picked = sanitiseLabel(rawPick);
 
 			return {
 				content: [

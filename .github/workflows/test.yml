@@ -4,25 +4,27 @@ on:
   push:
   pull_request:
 
+# Default-deny. Every job only checks out and runs tests.
+permissions:
+  contents: read
+
 jobs:
   tests:
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.os == 'macos-latest' }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         # The skill claims Python >=3.10 and ships stdlib-only. Test the floor,
-        # or the claim is decoration. macOS is experimental for now.
-        os: [ubuntu-latest, macos-latest]
+        # or the claim is decoration.
         python-version: ["3.10", "3.13"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: ruff lint (documented defaults, pinned against ruff default drift)
         run: |
-          pip install ruff
+          pip install ruff==0.17.3
           ruff check --select E4,E7,E9,F .claude/skills/tiltrank/scripts/
 
       - name: unit tests (validation, gating, ranking)
@@ -52,22 +54,41 @@ jobs:
           sys.exit(1 if bad else 0)
           PY
 
+  # Experimental, and deliberately not a dependency of the required `test`
+  # check. continue-on-error on a matrix cell makes that job report success,
+  # which would let a red macOS run satisfy the protected check name.
+  tests-macos:
+    runs-on: macos-latest
+    continue-on-error: true
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: unit tests (validation, gating, ranking)
+        run: python3 .claude/skills/tiltrank/scripts/test_rubric.py
+      - name: protocol assertions (offline fixtures)
+        run: python3 .claude/skills/tiltrank/scripts/eval/check_trace.py
+
   validate-skill:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
       - name: install claude code
-        run: npm install -g @anthropic-ai/claude-code
+        run: npm install -g @anthropic-ai/claude-code@2.1.316
       - name: validate skill frontmatter
         run: claude plugin validate .claude/skills
 
   extension-typecheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: check extensions presence
         id: extcheck
         run: |
@@ -76,25 +97,27 @@ jobs:
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: steps.extcheck.outputs.exists == 'true'
         with:
           node-version: "22"
       - name: install and typecheck
         if: steps.extcheck.outputs.exists == 'true'
-        run: cd extensions && npm install && npx tsc --noEmit
+        run: cd extensions && npm ci && npx tsc --noEmit
 
   # Required status check named 'test': matrix jobs report as
-  # 'test (os, python)', which never satisfies the protected-context name, so
+  # 'tests (python)', which never satisfies the protected-context name, so
   # this aggregate job reports the bare 'test' check. always() + explicit
   # failure (instead of a skip) so a red upstream can never vacuously satisfy
   # the required check — skipped check runs count as passing.
+  # tests-macos is not in needs: an experimental red cell must not fail, and
+  # must not be able to pass, this check.
   test:
     needs: [tests, validate-skill, extension-typecheck]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: fail unless every job above passed
+      - name: fail unless every required job above passed
         run: |
           echo "tests=${{ needs.tests.result }} validate-skill=${{ needs.validate-skill.result }} extension-typecheck=${{ needs.extension-typecheck.result }}"
           if [ "${{ needs.tests.result }}" != "success" ] \

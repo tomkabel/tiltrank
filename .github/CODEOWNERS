@@ -1,0 +1,6 @@
+# Workflow and scoring changes need the maintainer. Org-level branch
+# protection is what makes this binding; the file only names the reviewer.
+.github/workflows/ @tomkabel
+.github/dependabot.yml @tomkabel
+.claude/skills/tiltrank/scripts/ @tomkabel
+.claude/skills/tiltrank/SKILL.md @tomkabel
