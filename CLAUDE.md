@@ -17,6 +17,7 @@ python3 $S/eval/check_trace.py             # offline protocol assertions over fi
 python3 $S/test_skill_contract.py          # SKILL.md wording <-> check_trace RULES, plus the rule mutation test
 python3 $S/test_install_contract.py        # README install commands
 python3 .github/scripts/stdlib_only.py     # no import outside the stdlib, dynamic imports included
+python3 .github/scripts/test_stdlib_only.py   # the import checker itself catches every shape
 ruff check --select E4,E7,E9,F $S .github/scripts   # lint, same rule set as CI
 claude plugin validate .claude/skills      # SKILL.md frontmatter check (CI)
 cd extensions && npm ci && npx tsc --noEmit         # pi extension typecheck (CI)

@@ -47,7 +47,9 @@ jobs:
         run: python3 .claude/skills/tiltrank/scripts/test_skill_contract.py
 
       - name: no stray imports outside the stdlib
-        run: python3 .github/scripts/stdlib_only.py .claude
+        run: |
+          python3 .github/scripts/test_stdlib_only.py
+          python3 .github/scripts/stdlib_only.py .claude
 
   # Experimental, and deliberately not a dependency of the required `test`
   # check. continue-on-error on a matrix cell makes that job report success,

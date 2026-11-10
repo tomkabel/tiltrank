@@ -2,7 +2,7 @@
 """Fail on any import outside the stdlib under the given root (default .claude).
 
 Covers `import x`, `from x import y`, `__import__("x")` and
-`importlib.import_module("x")`. A dynamic import whose name is not a string
+`importlib.import_module("x")`, including an imported alias of either. A dynamic import whose name is not a string
 literal is reported too: it cannot be checked, so it is not allowed.
 """
 
@@ -17,7 +17,16 @@ def offenders(root: Path) -> list[str]:
     bad = []
     for f in sorted(root.rglob("*.py")):
         local = LOCAL | {p.stem for p in f.parent.glob("*.py")}
-        for node in ast.walk(ast.parse(f.read_text(), str(f))):
+        tree = ast.parse(f.read_text(), str(f))
+        # `from importlib import import_module as load` makes `load(...)` dynamic too.
+        # ponytail: plain assignment (`load = importlib.import_module`) is not tracked.
+        loaders = {"__import__"} | {
+            a.asname or a.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom) and node.module in ("importlib", "builtins")
+            for a in node.names
+            if a.name in ("import_module", "__import__")}
+        for node in ast.walk(tree):
             names: list[str] = []
             if isinstance(node, ast.Import):
                 names = [a.name for a in node.names]
@@ -25,7 +34,7 @@ def offenders(root: Path) -> list[str]:
                 names = [node.module]
             elif isinstance(node, ast.Call):
                 fn = node.func
-                dynamic = (isinstance(fn, ast.Name) and fn.id == "__import__") or (
+                dynamic = (isinstance(fn, ast.Name) and fn.id in loaders) or (
                     isinstance(fn, ast.Attribute) and fn.attr == "import_module")
                 if dynamic:
                     arg = node.args[0] if node.args else None
