@@ -27,11 +27,10 @@ def quickstart() -> str:
 
 def test_primary_command_is_skills_add() -> None:
     section = quickstart()
-    assert "npx skills add tomkabel/tiltrank" in section
-    assert "--skill tiltrank" in section
-    assert "-g" in section
-    assert "claude-code" in section and "hermes-agent" in section and " pi" in section
-    assert "--copy" in section
+    # The whole command, not its fragments: `"-g" in section` matched any
+    # word containing -g anywhere in the section.
+    install = "npx skills add tomkabel/tiltrank --skill tiltrank -g -a claude-code hermes-agent pi --copy -y"
+    assert re.search(r"^" + re.escape(install) + r"$", section, re.M), install
     assert section.index("npx skills add") < section.index("git clone")
 
 
@@ -80,7 +79,11 @@ def test_skill_does_not_hardcode_install_paths() -> None:
 
 def test_panel_is_not_sold_as_a_claude_command() -> None:
     section = quickstart()
-    assert "/panel" not in section.split("pi", 1)[0]
+    # Every mention of /panel must sit in a sentence about pi, the word: a
+    # split on "pi" also matched "pip", "pinned" and "API".
+    for sentence in re.split(r"(?<=[.!?])\s+|\n\n", section):
+        if "/panel" in sentence:
+            assert re.search(r"\bpi\b", sentence), sentence
 
 
 def test_porting_doc_does_not_reintroduce_dead_pi_settings() -> None:
@@ -97,6 +100,16 @@ def test_readme_links_resolve() -> None:
         if not path:
             continue
         assert (ROOT / path).exists(), path
+
+
+def test_porting_doc_quotes_the_current_frontmatter() -> None:
+    """The porting doc's frontmatter snippet must match SKILL.md, not an old release."""
+    def field(text: str, key: str) -> str:
+        m = re.search(rf"^\s*{key}: (.+)$", text, re.M)
+        assert m, key
+        return m.group(1).strip()
+    for key in ("version", "description", "allowed-tools"):
+        assert field(PORTING, key) == field(SKILL, key), key
 
 
 if __name__ == "__main__":

@@ -72,15 +72,18 @@ hermes-agent repo.
    index truncates at 57 chars, so the long form buys nothing there anyway).
    Required union shape (this is the **implemented** frontmatter — validated
    against both `claude plugin validate .claude/skills` (passes) and the
-   Hermes `_validate_frontmatter` logic (passes; description 55 chars, 5
-   under the 60 limit — headroom matters, a description at exactly the
-   limit breaks on the first copy edit):
+   Hermes `_validate_frontmatter` logic. The description is longer than 60
+   characters: that limit only hard-rejects skills created through Hermes'
+   `skill_manage`, and its first 56 characters are a complete trigger, so the
+   57-character truncation costs display only — see "Hermes' 60-char
+   description limit" below. `test_install_contract.py` keeps this block equal
+   to SKILL.md:
    ```yaml
    ---
    name: tiltrank
-   description: Choose between options with a scored, ask-first rubric.
+   description: Choose between options with a scored, ask-first rubric. Use when the user hands you several candidate options and wants a reasoned, defensible pick — a transparent multi-criteria ranking, an overridable default, and an escalation path for close or high-stakes calls.
    allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/rubric.py:*)
-   version: 0.2.0
+   version: 0.3.0
    author: Tom Kristian Abel (tkabel), Hermes Agent
    license: MPL-2.0
    platforms: [linux, macos, windows]
@@ -349,7 +352,7 @@ all scanners see it, and the repo stays the single source of truth.
 
 **Deployment verification (Hermes)** — run live, not assumed:
 - `claude plugin validate .claude/skills` → passes (union frontmatter).
-- Hermes `_validate_frontmatter` logic on the union file → passes; description 55 chars, 5 under the 60-char new-skill limit.
+- Hermes `_validate_frontmatter` logic on the union file → passes. At the time the description was 55 chars; it has since grown past the 60-char new-skill limit, which does not apply to an externally discovered skill (see item 2 above).
 - `skills.external_dirs` registration → `_find_skill('tiltrank')` resolves.
 - `check_trace.py --live --driver hermes --only clear-winner` → the driver ran
   end-to-end: skill invoked 1/1, rubric.py executed, decision log written,
