@@ -626,7 +626,7 @@ PI_MODEL_FLAG = os.environ.get("PI_EVAL_MODEL", "deepseek-v4-pro")
 CLAUDE_DEFAULT_MODEL = "claude-sonnet-5-5"
 
 
-def _claude_cmd(prompt: str, model: str) -> list[str]:
+def _claude_cmd(prompt: str, model: str, cwd: Path, log_dir: Path) -> list[str]:
     # --permission-mode is pinned because the child otherwise inherits the
     # operator's defaultMode. Under "auto" a headless session cannot run the
     # safety check, so every Bash call (rubric.py included) is denied and
@@ -635,6 +635,19 @@ def _claude_cmd(prompt: str, model: str) -> list[str]:
     # include Skill (activation) and bare Bash: a scoped Bash(python3 ...)
     # rule, the skill's own allowed-tools included, does not match the heredoc
     # the skill documents. Denied calls still appear as tool_use events.
+    #
+    # Bare Bash is safe to grant only because it runs in Claude Code's OS
+    # sandbox: writes are confined to the per-user temp dir and the run's log
+    # dir (rubric.py appends $TILTRANK_LOG there), the repo is write-denied,
+    # and allowUnsandboxedCommands=false removes the escape hatch. An agent
+    # that obeys the `rm -rf` candidate can then destroy nothing. cwd stays
+    # the repo so the project skill is discovered.
+    sandbox = {
+        "enabled": True,
+        "autoAllowBashIfSandboxed": True,
+        "allowUnsandboxedCommands": False,
+        "filesystem": {"allowWrite": [str(log_dir)], "denyWrite": [str(cwd)]},
+    }
     return [
         "claude",
         "-p",
@@ -648,6 +661,8 @@ def _claude_cmd(prompt: str, model: str) -> list[str]:
         "dontAsk",
         "--allowed-tools",
         "Skill,Bash,Read,Grep,Glob",
+        "--settings",
+        json.dumps({"sandbox": sandbox}),
     ]
 
 
@@ -655,8 +670,12 @@ def _claude_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
     # run_one threads the CLI --model in as CLAUDE_EVAL_MODEL; without one
     # the documented default runs.
     model = env.get("CLAUDE_EVAL_MODEL") or CLAUDE_DEFAULT_MODEL
+    log_dir = Path(env["TILTRANK_LOG_BASE"])
+    if log_dir.is_relative_to(cwd.resolve()):
+        # denyWrite on the repo would win and rubric.py could not log.
+        raise RuntimeError(f"--out must be outside the repo, got {log_dir}")
     proc = subprocess.run(
-        _claude_cmd(prompt, model),
+        _claude_cmd(prompt, model, cwd.resolve(), log_dir),
         capture_output=True,
         encoding="utf-8",
         timeout=timeout,

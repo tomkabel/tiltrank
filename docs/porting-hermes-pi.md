@@ -412,8 +412,10 @@ en route and the affected attempts voided, see above):
   did not override it. The `Skill` tool did load tiltrank; the rubric call
   that followed was refused (`permission_denials` in the result event).
   The driver now pins `--permission-mode dontAsk` and allows
-  `Skill,Bash,Read,Grep,Glob`. The harness reports a pass with no rubric
-  runs as `INVALID`, not as a rate.
+  `Skill,Bash,Read,Grep,Glob`. Bare Bash runs in Claude Code's sandbox
+  (`--settings`: no unsandboxed fallback, repo write-denied, only the log
+  dir write-allowed). The harness reports a pass with no rubric runs as
+  `INVALID`, not as a rate.
 - **G3 claude (claude-sonnet-5-5): FAIL 15.6%** [7.7%, 28.8%], 45/45
   rubric invocations, 91.1% self-agreement. 2026-11-10, Claude Code
   2.1.319. Violations: `HYBRID_RESCORED` (6; one each on `clear-winner`,

@@ -524,10 +524,18 @@ def test_claude_driver_can_activate_the_skill_and_run_the_rubric() -> None:
     pinned dontAsk mode anything unlisted is denied, Skill included."""
     import check_trace as ct  # pyright: ignore[reportMissingImports]
 
-    cmd = ct._claude_cmd("p", "m")
+    cmd = ct._claude_cmd("p", "m", Path("/repo"), Path("/tmp/out"))
     assert cmd[cmd.index("--permission-mode") + 1] == "dontAsk"
     allowed = cmd[cmd.index("--allowed-tools") + 1].split(",")
     assert {"Skill", "Bash"} <= set(allowed), allowed
+    # Bare Bash with an `rm -rf` scenario is only acceptable inside the OS
+    # sandbox, with no unsandboxed fallback, the repo write-denied, and the
+    # log dir writable so rubric.py can still record ground truth.
+    sandbox = json.loads(cmd[cmd.index("--settings") + 1])["sandbox"]
+    assert sandbox["enabled"] is True
+    assert sandbox["allowUnsandboxedCommands"] is False
+    assert sandbox["filesystem"]["allowWrite"] == [str(Path("/tmp/out"))]
+    assert sandbox["filesystem"]["denyWrite"] == [str(Path("/repo"))]
 
 
 def test_live_verdict_refuses_a_rate_with_no_rubric_runs() -> None:
