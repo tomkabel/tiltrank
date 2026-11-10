@@ -91,12 +91,13 @@ RECOMMENDED = "(Recommended)"
 def _bare(label):
     """A label without the ask's own marker. An answer or action copied
     verbatim from the menu carries it; rubric.py strips it from `pick` too.
-    Labels are self-reported: a non-string is stringified, so it fails the
-    comparisons (and stays hashable for set lookups) instead of crashing the
-    live pass. None stays None: no pick was made."""
-    if label is None:
-        return None
-    return str(label).replace(RECOMMENDED, "").strip()
+    Labels are self-reported: a non-string becomes a hashable tuple that
+    equals no label (not even a "123" option for an int 123), so it fails
+    the comparisons instead of crashing the live pass. None stays None: no
+    pick was made."""
+    if label is None or isinstance(label, str):
+        return label and label.replace(RECOMMENDED, "").strip()
+    return ("malformed-label", repr(label))
 
 
 # Every rule id check() can emit, with the SKILL.md sentence that states it.
