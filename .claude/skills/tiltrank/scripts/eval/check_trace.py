@@ -1043,6 +1043,32 @@ def run_one(
     return trace
 
 
+def live_verdict(
+    outcomes: list[list[str] | None], gate: float
+) -> tuple[str, int, int, int]:
+    """(verdict, broken, scored, activated) for a live pass.
+
+    One outcome per run: the violations of a run where rubric.py ran (empty
+    means clean), ["TIMEOUT"] for a hung run, or None where rubric.py never
+    wrote to the log. A None run never exercised the skill, so it is evidence
+    of nothing about the protocol: it stays out of the break-rate denominator
+    instead of counting as clean, or as a RUBRIC_BEFORE_ASK break. If no run
+    activated, there is no rate to gate and the verdict is INVALID. Issue #1
+    reported 6.7% from 0/45 activated runs.
+
+    Timeouts still count as breaks, as before.
+    """
+    # ponytail: a run that loaded the skill and then skipped rubric.py also
+    # lands in None; split on a Skill / SKILL.md-read tool call if that matters.
+    scored = [o for o in outcomes if o is not None]
+    broken = sum(1 for o in scored if o)
+    activated = sum(1 for o in scored if o != ["TIMEOUT"])
+    if not activated:
+        return "INVALID", broken, len(scored), 0
+    _, hi = wilson(broken, len(scored))
+    return ("FAIL" if hi > gate else "PASS"), broken, len(scored), activated
+
+
 def run_live(
     model: str,
     repeat: int,
@@ -1051,15 +1077,13 @@ def run_live(
     only: str | None,
     driver: str = "claude",
 ) -> int:
-    scenarios = json.loads((HERE / "scenarios.json").read_text())
+    scenarios = json.loads((HERE / "scenarios.json").read_text(encoding="utf-8"))
     if only:
         scenarios = [s for s in scenarios if s["id"] == only]
         if not scenarios:
             raise SystemExit(f"error: no scenario with id {only!r}")
     out_dir.mkdir(parents=True, exist_ok=True)
-    runs = 0
-    broken = 0
-    no_rubric = 0
+    outcomes: list[list[str] | None] = []
     per_scenario: dict[str, list[str | None]] = {}
 
     for sc in scenarios:
@@ -1067,19 +1091,26 @@ def run_live(
         for k in range(repeat):
             run_id = f"{sc['id']}.{k}"
             trace = run_one(sc, model, out_dir, run_id, driver=driver)
-            (out_dir / f"{run_id}.json").write_text(json.dumps(trace, indent=2))
-            runs += 1
+            (out_dir / f"{run_id}.json").write_text(
+                json.dumps(trace, indent=2), encoding="utf-8"
+            )
 
             if trace.get("error") == "timeout":
-                broken += 1
+                outcomes.append(["TIMEOUT"])
                 print(f"  FAIL {run_id:<38} timeout")
                 recs.append(None)
                 continue
             if not trace["ran_rubric"]:
-                no_rubric += 1
+                outcomes.append(None)
+                denied = len(trace.get("permission_denials") or [])
+                print(
+                    f"  SKIP {run_id:<38} not activated: rubric.py never ran "
+                    f"({denied} permission denials)"
+                )
+                recs.append(None)
+                continue
             violations = check(trace)
-            if violations:
-                broken += 1
+            outcomes.append(violations)
             rec = next(
                 (
                     e["recommended"]
@@ -1095,11 +1126,21 @@ def run_live(
             )
         per_scenario[sc["id"]] = recs
 
-    rate = broken / runs if runs else 0.0
-    lo, hi = wilson(broken, runs)
+    verdict, broken, scored, activated = live_verdict(outcomes, gate)
+    runs = len(outcomes)
+    lo, hi = wilson(broken, scored)
     print(f"\nruns: {runs} ({len(scenarios)} scenarios x {repeat})")
-    print(f"protocol-break rate: {rate:.1%}  95% CI [{lo:.1%}, {hi:.1%}]")
-    print(f"skill invoked (rubric.py ran): {runs - no_rubric}/{runs}")
+    print(
+        f"skill activated (rubric.py ran): {activated}/{runs}; "
+        f"{outcomes.count(None)} not activated, excluded from the rate"
+    )
+    if scored:
+        print(
+            f"protocol-break rate: {broken / scored:.1%}  95% CI "
+            f"[{lo:.1%}, {hi:.1%}] over {scored} scored runs"
+        )
+        rules = Counter(v for o in outcomes if o for v in o)
+        print(f"violations by rule: {dict(rules.most_common()) or 'none'}")
 
     if repeat > 1:
         # The empirical number the old hardcoded noise band was standing in for.
@@ -1116,7 +1157,10 @@ def run_live(
             )
 
     print(f"traces: {out_dir}")
-    if hi > gate:
+    if verdict == "INVALID":
+        print("GATE INVALID: rubric.py never ran, so there is no break rate to gate")
+        return 1
+    if verdict == "FAIL":
         print(f"GATE FAIL: cannot rule out a break rate above {gate:.0%}")
         return 1
     return 0
