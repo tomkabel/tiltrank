@@ -374,7 +374,7 @@ def check(trace: dict) -> list[str]:
 
 
 def run_fixtures() -> int:
-    cases = json.loads((HERE / "fixtures.json").read_text())
+    cases = json.loads((HERE / "fixtures.json").read_text(encoding="utf-8"))
     failures = 0
     for case in cases:
         expected = sorted(case["expect_violations"])
@@ -622,29 +622,41 @@ HERMES_MODEL_FLAG = os.environ.get("HERMES_EVAL_MODEL", "")
 # the vacuous-trace guard below catches it, but pinning the authed provider
 # makes runs deterministic. Override with PI_EVAL_MODEL.
 PI_MODEL_FLAG = os.environ.get("PI_EVAL_MODEL", "deepseek-v4-pro")
-CLAUDE_MODEL_FLAG = os.environ.get("CLAUDE_EVAL_MODEL", "")
+# The model the README and docs/porting-hermes-pi.md document for G3.
+CLAUDE_DEFAULT_MODEL = "claude-sonnet-5-5"
+
+
+def _claude_cmd(prompt: str, model: str) -> list[str]:
+    # --permission-mode is pinned because the child otherwise inherits the
+    # operator's defaultMode. Under "auto" a headless session cannot run the
+    # safety check, so every Bash call (rubric.py included) is denied and
+    # --allowed-tools does not help; that is what produced 0/45 rubric runs
+    # (issue #1). dontAsk denies whatever is not listed here, so the list must
+    # include Skill (activation) and bare Bash: a scoped Bash(python3 ...)
+    # rule, the skill's own allowed-tools included, does not match the heredoc
+    # the skill documents. Denied calls still appear as tool_use events.
+    return [
+        "claude",
+        "-p",
+        prompt,
+        "--model",
+        model,
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--permission-mode",
+        "dontAsk",
+        "--allowed-tools",
+        "Skill,Bash,Read,Grep,Glob",
+    ]
 
 
 def _claude_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
-    # Model resolution order: explicit env override, then the CLI --model
-    # threaded through by main() (the README's documented default "sonnet"
-    # must actually reach the driver — an earlier version read this flag at
-    # import time, so --model was dead and the documented command silently
-    # ran opus), then the pre-port adapter default.
-    model = env.get("CLAUDE_EVAL_MODEL") or "claude-opus-4-5"
+    # run_one threads the CLI --model in as CLAUDE_EVAL_MODEL; without one
+    # the documented default runs.
+    model = env.get("CLAUDE_EVAL_MODEL") or CLAUDE_DEFAULT_MODEL
     proc = subprocess.run(
-        [
-            "claude",
-            "-p",
-            prompt,
-            "--model",
-            model,
-            "--output-format",
-            "stream-json",
-            "--verbose",
-            "--allowed-tools",
-            "Bash,Read,Grep,Glob",
-        ],
+        _claude_cmd(prompt, model),
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -973,7 +985,7 @@ def run_one(
     # Ground truth: what rubric.py actually saw and returned.
     rubric_runs = []
     if log_path.exists():
-        for line in log_path.read_text().splitlines():
+        for line in log_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 rubric_runs.append(json.loads(line))
 
@@ -1005,6 +1017,15 @@ def run_one(
         },
         "tools": tools_used,
         "tool_calls": _tool_calls(events),
+        # claude's final result event lists every call the permission layer
+        # refused; a harness that blocks rubric.py shows up here, not as a
+        # protocol break.
+        "permission_denials": [
+            d
+            for e in events
+            if e.get("type") == "result"
+            for d in e.get("permission_denials") or []
+        ],
         "rubric_runs": rubric_runs,
         "ran_rubric": bool(rubric_runs),
         "rubric_ground_truth": bool(rubric_runs),
@@ -1112,7 +1133,7 @@ def main() -> int:
         "--model",
         default=None,
         help="model for --live runs (all drivers; default: per-driver "
-        "fallback — claude-opus-4-5 / hermes profile default / "
+        f"fallback — {CLAUDE_DEFAULT_MODEL} / hermes profile default / "
         "pi's authed deepseek-v4-pro)",
     )
     ap.add_argument(
