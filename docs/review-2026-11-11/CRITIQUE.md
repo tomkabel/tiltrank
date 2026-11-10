@@ -1,7 +1,13 @@
 # External critique, 2026-11-11
 
-Verbatim critique of the README hero demo (`docs/demo.svg`), kept as the input to
-`PLAN.md`. Paraphrasing it would weaken the record, so it is not edited.
+Critique of the README hero demo (`docs/demo.svg`) as recorded on 2026-11-11, kept
+as the input to `PLAN.md` and not edited since.
+
+**The record may be incomplete.** `PLAN.md` revision 1 answered points that are
+not below: `1d`, a summary list `S1`–`S4`, and a quoted "let trade-offs be
+trade-offs". The full original is not in the repo. Revision 2 answers only what
+is recorded here. The screenshot the critic reviewed was the committed
+`docs/demo.svg` (`06e2dce`), whose text matches every quote below.
 
 ---
 
