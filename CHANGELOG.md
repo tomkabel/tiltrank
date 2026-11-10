@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `check({})` passed every rule. New rule `RUBRIC_BEFORE_ASK`: a trace needs a rubric run, before any ask, and a live run without a decision log does not count.
 - `OTHER_RESCORED` accepted any later rubric run, even one without the typed answer. `RESCORE_TO_DISMISS` used `events.index()`, so a duplicated rubric event hid a dismissal.
 - `NO_PERCENT` flagged `Redis 1.0.1` and `3 of 4 teams` and missed `80 percent` and `4 in 5`.
+- pi extension: `timeoutMs` accepted NaN, negative and overflowing values; the Other free-text prompt had no timeout and could block forever; `multiSelect` returned one raw string with unoffered names mixed in. One deadline now covers the whole ask, `multiSelect` returns `picks` (offered labels) and `other`, and an agent-appended `(Recommended)` is no longer rendered twice.
+- The extension's `sanitiseLabel` truncated by UTF-16 units, not code points like `rubric.py`. `tiltrank.test.ts` now runs both on 300 generated inputs.
+- CI ran twice per PR push, had no concurrency group or job timeouts, skipped the extension job when `extensions/package.json` was missing, and its stdlib check ignored `__import__`/`importlib`. Two install-contract assertions could not fail (`"-g" in section`, a split on `"pi"` that matched `pip`). The porting doc quoted the 0.2.0 frontmatter.
 
 ### Added
 - `check_trace.RULES` maps every rule id to the SKILL.md sentence that states it. `test_skill_contract.py` fails if a rule is unregistered, if its sentence is missing from SKILL.md, or if deleting the rule from the source leaves every fixture green (mutation test).

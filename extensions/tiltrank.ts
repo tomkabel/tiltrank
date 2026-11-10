@@ -30,19 +30,38 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
+const MAX_TIMEOUT_MS = 3_600_000; // setTimeout overflows past 2**31-1 and fires at once
 const MAX_LABEL_LEN = 120;
+const RECOMMENDED = "(Recommended)";
+const OTHER = "Other (type your own)";
 // Mirrors rubric.py sanitise_label. Scoring stays in the script; this only
 // stops a label or an Other answer from carrying newlines or bidi into the
 // next prompt before that re-score.
 const CONTROL_RE =
 	/[\u0000-\u001f\u007f-\u009f\u00a0\u00ad\u200b-\u200f\u2028\u2029\u202a-\u202e\u2066-\u2069\ufeff]/g;
 
-function sanitiseLabel(raw: string): string {
-	let text = raw.normalize("NFC").replace(CONTROL_RE, " ").replace(/\s+/g, " ").trim();
-	if (text.length > MAX_LABEL_LEN) {
-		text = text.slice(0, MAX_LABEL_LEN - 1).trimEnd() + "…";
-	}
-	return text;
+export function sanitiseLabel(raw: string): string {
+	const text = raw.normalize("NFC").replace(CONTROL_RE, " ").replace(/\s+/g, " ").trim();
+	// Code points, as Python counts them: .length and .slice split surrogate pairs.
+	const chars = Array.from(text);
+	if (chars.length <= MAX_LABEL_LEN) return text;
+	return chars.slice(0, MAX_LABEL_LEN - 1).join("").trimEnd() + "…";
+}
+
+/** The label as scored: sanitised, and without a marker the agent already added. */
+function bareLabel(raw: string): string {
+	let label = sanitiseLabel(raw);
+	if (label.startsWith(RECOMMENDED)) label = label.slice(RECOMMENDED.length);
+	if (label.endsWith(RECOMMENDED)) label = label.slice(0, -RECOMMENDED.length);
+	return label.trim();
+}
+
+function reply(body: object, details: object = body) {
+	return { content: [{ type: "text" as const, text: JSON.stringify(body) }], details };
+}
+
+function error(message: string) {
+	return reply({ error: message }, { error: true });
 }
 
 interface OptionItem {
@@ -56,12 +75,9 @@ interface QuestionItem {
 	multiSelect?: boolean;
 }
 
-function renderOptions(options: OptionItem[]): string[] {
+function renderOptions(labels: string[]): string[] {
 	// First option = recommended (position is the marker; we make it visible).
-	return options.map((o, i) => {
-		const label = sanitiseLabel(o.label);
-		return i === 0 ? `(Recommended) ${label}` : label;
-	});
+	return labels.map((label, i) => (i === 0 ? `${RECOMMENDED} ${label}` : label));
 }
 
 export default function (pi: ExtensionAPI) {
@@ -98,120 +114,68 @@ export default function (pi: ExtensionAPI) {
 				Type.Number({ description: "Ask timeout in ms; default 120000. On timeout returns timedOut." }),
 			),
 		}),
-		async execute(toolCallId, params, _signal, _onUpdate, ctx) {
+		async execute(_toolCallId, params, signal, _onUpdate, ctx) {
 			const timeoutMs = params.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-			const q: QuestionItem = params.questions[0];
-			if (!q) {
-				return {
-					content: [{ type: "text", text: "error: questions[0] required" }],
-					details: { error: true },
-				};
+			if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > MAX_TIMEOUT_MS) {
+				return error(`timeoutMs must be a number in (0, ${MAX_TIMEOUT_MS}], got ${timeoutMs}`);
 			}
-			if (q.options.length === 0) {
-				return {
-					content: [{ type: "text", text: "error: at least one option required" }],
-					details: { error: true },
-				};
+			const q: QuestionItem | undefined = params.questions[0];
+			if (!q) return error("questions[0] required");
+			if (q.options.length === 0) return error("at least one option required");
+
+			const offered = q.options.map((o) => bareLabel(o.label));
+			if (offered.some((l) => l === "") || new Set(offered).size !== offered.length) {
+				return error("option labels must be non-empty and distinct");
 			}
+			const labels = renderOptions(offered);
 
-			const labels = renderOptions(q.options);
-			const withOther = [...labels, "Other (type your own)"];
-
-			const controller = new AbortController();
-			const timer = setTimeout(() => controller.abort(), timeoutMs);
-			let choice: string | undefined;
-			try {
-				if (q.multiSelect) {
-					// ctx.ui.select is single-choice; multiSelect falls back to
-					// a free-text ask naming the options — the honest simple UI.
-					choice = await ctx.ui.input(
-						q.question +
-							" — pick any of: " +
-							labels.join("; ") +
-							" (comma-separated)",
-						"your picks",
-						{ signal: controller.signal },
-					);
-				} else {
-					choice = await ctx.ui.select(q.question, withOther, {
-						signal: controller.signal,
-					});
+			// One deadline for the whole ask, including the Other free-text step:
+			// a second prompt without it could block the agent forever.
+			const deadline = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(signal ? [signal] : [])]);
+			const prompt = async (fn: () => Promise<string | undefined>) => {
+				try {
+					return await fn();
+				} catch {
+					return undefined;
 				}
-			} catch {
-				choice = undefined;
-			} finally {
-				clearTimeout(timer);
-			}
-
-			if (controller.signal.aborted) {
-				return {
-					content: [
-						{
-							type: "text",
-							text: JSON.stringify({ timedOut: true, pick: null }),
-						},
-					],
-					details: { timedOut: true },
-				};
-			}
-
-			if (choice === undefined || choice === null || choice === "") {
-				// user cancelled (Esc) — same honest shape as timeout
-				return {
-					content: [
-						{
-							type: "text",
-							text: JSON.stringify({ timedOut: false, cancelled: true, pick: null }),
-						},
-					],
-					details: { cancelled: true },
-				};
-			}
-
-			if (choice === "Other (type your own)") {
-				const own = await ctx.ui.input("Your own choice:", "free text");
-				const ownLabel = sanitiseLabel(own ?? "");
-				if (ownLabel === "") {
-					return {
-						content: [
-							{
-								type: "text",
-								text: JSON.stringify({ timedOut: false, cancelled: true, pick: null }),
-							},
-						],
-						details: { cancelled: true },
-					};
-				}
-				return {
-					content: [
-						{
-							type: "text",
-							text: JSON.stringify({
-								timedOut: false,
-								pick: ownLabel,
-								source: "other",
-							}),
-						},
-					],
-					details: { pick: ownLabel, source: "other" },
-				};
-			}
-
-			// Strip the "(Recommended) " prefix we added for rendering.
-			const rawPick = choice.startsWith("(Recommended) ")
-				? choice.slice("(Recommended) ".length)
-				: choice;
-			const picked = sanitiseLabel(rawPick);
-
-			return {
-				content: [
-					{
-						type: "text",
-						text: JSON.stringify({ timedOut: false, pick: picked }),
-					},
-				],
-				details: { pick: picked },
 			};
+			const expired = () => (deadline.aborted ? reply({ timedOut: true, pick: null }) : undefined);
+			const cancelled = () => reply({ timedOut: false, cancelled: true, pick: null });
+
+			if (q.multiSelect) {
+				// ctx.ui.select is single-choice; multiSelect falls back to a
+				// free-text ask naming the options. Split the answer back into
+				// offered labels and Other text, so an unscored name is never
+				// returned as if it had been on the menu.
+				const raw = await prompt(() =>
+					ctx.ui.input(`${q.question} — pick any of: ${labels.join("; ")} (comma-separated)`, "your picks", {
+						signal: deadline,
+					}),
+				);
+				const timedOut = expired();
+				if (timedOut) return timedOut;
+				const parts = (raw ?? "").split(",").map(bareLabel).filter(Boolean);
+				if (parts.length === 0) return cancelled();
+				const picks = [...new Set(parts.filter((p) => offered.includes(p)))];
+				const other = [...new Set(parts.filter((p) => !offered.includes(p)))];
+				return reply({ timedOut: false, picks, other });
+			}
+
+			const choice = await prompt(() => ctx.ui.select(q.question, [...labels, OTHER], { signal: deadline }));
+			const timedOut = expired();
+			if (timedOut) return timedOut;
+			if (!choice) return cancelled(); // Esc: same honest shape as a timeout
+
+			if (choice === OTHER) {
+				const own = await prompt(() => ctx.ui.input("Your own choice:", "free text", { signal: deadline }));
+				const late = expired();
+				if (late) return late;
+				const ownLabel = sanitiseLabel(own ?? "");
+				if (ownLabel === "") return cancelled();
+				return reply({ timedOut: false, pick: ownLabel, source: "other" });
+			}
+
+			return reply({ timedOut: false, pick: bareLabel(choice) });
 		},
 	});
 

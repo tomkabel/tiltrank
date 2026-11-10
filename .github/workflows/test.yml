@@ -1,8 +1,14 @@
 name: test
 
+# Push only on main: a branch with a PR open used to run every job twice.
 on:
   push:
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Default-deny. Every job only checks out and runs tests.
 permissions:
@@ -11,6 +17,7 @@ permissions:
 jobs:
   tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     strategy:
       matrix:
         # The skill claims Python >=3.10 and ships stdlib-only. Test the floor,
@@ -22,10 +29,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: ruff lint (documented defaults, pinned against ruff default drift)
+      - name: ruff lint (rule set pinned here and in CLAUDE.md)
         run: |
           pip install ruff==0.17.3
-          ruff check --select E4,E7,E9,F .claude/skills/tiltrank/scripts/
+          ruff check --select E4,E7,E9,F .claude/skills/tiltrank/scripts/ .github/scripts/
 
       - name: unit tests (validation, gating, ranking)
         run: python3 .claude/skills/tiltrank/scripts/test_rubric.py
@@ -40,31 +47,14 @@ jobs:
         run: python3 .claude/skills/tiltrank/scripts/test_skill_contract.py
 
       - name: no stray imports outside the stdlib
-        run: |
-          python3 - <<'PY'
-          import ast, pathlib, sys
-          stdlib = sys.stdlib_module_names
-          bad = []
-          for f in pathlib.Path(".claude").rglob("*.py"):
-              for node in ast.walk(ast.parse(f.read_text())):
-                  names = []
-                  if isinstance(node, ast.Import):
-                      names = [a.name for a in node.names]
-                  elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                      names = [node.module]
-                  for n in names:
-                      root = n.split(".")[0]
-                      if root not in stdlib and root not in {"rubric", "check_trace"}:
-                          bad.append(f"{f}: {n}")
-          print("\n".join(bad) or "stdlib only")
-          sys.exit(1 if bad else 0)
-          PY
+        run: python3 .github/scripts/stdlib_only.py .claude
 
   # Experimental, and deliberately not a dependency of the required `test`
   # check. continue-on-error on a matrix cell makes that job report success,
   # which would let a red macOS run satisfy the protected check name.
   tests-macos:
     runs-on: macos-latest
+    timeout-minutes: 10
     continue-on-error: true
     strategy:
       matrix:
@@ -81,6 +71,7 @@ jobs:
 
   validate-skill:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -96,23 +87,17 @@ jobs:
 
   extension-typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: check extensions presence
-        id: extcheck
-        run: |
-          if [ -f extensions/package.json ]; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        if: steps.extcheck.outputs.exists == 'true'
         with:
           node-version: "22"
+      # No presence check: a deleted package.json must fail this job, not skip it.
       - name: install and typecheck
-        if: steps.extcheck.outputs.exists == 'true'
         run: cd extensions && npm ci && npx tsc --noEmit
+      - name: extension tests (incl. sanitiser parity with rubric.py)
+        run: node --experimental-strip-types --test --test-force-exit extensions/tiltrank.test.ts
 
   # Required status check named 'test': matrix jobs report as
   # 'tests (python)', which never satisfies the protected-context name, so
@@ -125,6 +110,7 @@ jobs:
     needs: [tests, validate-skill, extension-typecheck]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: fail unless every required job above passed
         run: |
