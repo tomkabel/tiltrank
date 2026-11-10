@@ -443,15 +443,28 @@ def _pipelines(line: str) -> list[list[list[str]]]:
 
 def _is_rubric_call(words: list[str]) -> bool:
     """`[VAR=x ...] python* [-flags] <path>/rubric.py ...`, and nothing else.
-    `python3 -c CODE rubric.py` runs CODE, so its first operand is not rubric.py."""
+    `python3 -c CODE rubric.py`, `-cCODE`, `-m mod` and `-` (script on stdin)
+    run something else, so none of them count, glued or clustered."""
     while words and re.match(r"^[A-Za-z_]\w*=", words[0]):
         words = words[1:]
     if not words or not _PYTHON_RE.match(Path(words[0]).name):
         return False
-    operands = [w for w in words[1:] if not w.startswith("-")]
-    # ponytail: trusts any file named rubric.py; pin the skill dir if an agent
-    # ever writes its own rubric.py to launder a payload.
-    return bool(operands) and Path(operands[0]).name == "rubric.py"
+    for i, w in enumerate(words[1:], 1):
+        if w == "-" or (w.startswith("-") and not w.startswith("--") and set(w[1:]) & {"c", "m"}):
+            # ponytail: also rejects harmless -X/-W values that contain c or m.
+            return False
+        if not w.startswith("-"):
+            # ponytail: trusts any file named rubric.py; pin the skill dir if an
+            # agent ever writes its own rubric.py to launder a payload.
+            return Path(w).name == "rubric.py"
+    return False
+
+
+def _pipeline_feeds_rubric(pipeline: list[list[str]]) -> bool:
+    """rubric.py is the last stage and every stage before it only produces data.
+    `echo x | sh | python3 rubric.py` runs x in sh before rubric.py sees it."""
+    return _is_rubric_call(pipeline[-1]) and all(
+        Path(words[0]).name in _PRODUCERS for words in pipeline[:-1])
 
 
 def _heredoc_feeds_rubric(line: str) -> bool:
@@ -464,7 +477,7 @@ def _heredoc_feeds_rubric(line: str) -> bool:
         for words in pipeline:
             if any(w.startswith("<<") for w in words):
                 return _is_rubric_call(words) or (
-                    Path(words[0]).name in _PRODUCERS and _is_rubric_call(pipeline[-1]))
+                    Path(words[0]).name in _PRODUCERS and _pipeline_feeds_rubric(pipeline))
     return False
 
 
@@ -497,7 +510,7 @@ def _executed_text(cmd: str) -> str:
             kept.append(line)
             continue
         for pipeline in pipelines:
-            feeds_rubric = _is_rubric_call(pipeline[-1])
+            feeds_rubric = _pipeline_feeds_rubric(pipeline)
             for words in pipeline:
                 if _is_rubric_call(words):
                     continue
