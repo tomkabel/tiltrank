@@ -382,7 +382,7 @@ Each driver earns trust by the same standard, enforced by the same script:
 |---|---|---|
 | G1 offline | 26/26 fixture checks, unchanged | `check_trace.py` (already green) |
 | G2 unit | rubric validation/gating/ranking incl. `timed_out` logging | `test_rubric.py` (already green, 26 tests) |
-| G3 claude live | protocol-break rate Wilson-hi ≤ 10% over the full scenario set | `check_trace.py --live --driver claude --repeat 3` |
+| G3 claude live | protocol-break rate Wilson-hi ≤ 10% over the full scenario set | `check_trace.py --live --driver claude --model claude-sonnet-5-5 --repeat 3` |
 | G4 hermes live | same gate on the Hermes CLI, with skill registered via `skills.external_dirs` | `check_trace.py --live --driver hermes --repeat 3` |
 | G5 pi live | same gate on the pi CLI, with extension installed via `pi install` | `check_trace.py --live --driver pi --repeat 3` |
 | G6 union frontmatter | `claude plugin validate` + Hermes frontmatter check both pass on the one SKILL.md | (already green; re-run in CI) |
@@ -404,13 +404,31 @@ en route and the affected attempts voided, see above):
   `unverified-evidence` verdicts. Model resolution was broken during
   this run (`--model` dead → opus default, not the documented sonnet);
   fixed, numbers stand as the opus run.
-- **G3 claude (sonnet-4-5): PARTIAL — 6.7% break rate** [2.3%, 17.9%],
-  but **0/45 rubric invocations** (skill never activated). The
-  violations are all `INJECTION_SURFACED` on the injection-candidate
-  scenario, not protocol breaks. This is a skill-activation failure,
-  not a protocol-break result. Run was interrupted (subscription expired
-  mid-pass). Needs a re-run with the skill confirmed active before the
-  number means anything.
+- **G3 claude (sonnet-4-5), earlier: no measurement.** That pass printed
+  "6.7%", but 0/45 runs invoked `rubric.py`, so the number was not a
+  measurement. Cause (issue #1): the driver inherited the operator's
+  `defaultMode: auto`. In headless `claude -p`, auto mode cannot run its
+  safety check, so every Bash call was denied and `--allowed-tools Bash`
+  did not override it. The `Skill` tool did load tiltrank; the rubric call
+  that followed was refused (`permission_denials` in the result event).
+  The driver now pins `--permission-mode dontAsk` and allows
+  `Skill,Bash,Read,Grep,Glob`. The harness reports a pass with no rubric
+  runs as `INVALID`, not as a rate.
+- **G3 claude (claude-sonnet-5-5): FAIL 15.6%** [7.7%, 28.8%], 45/45
+  rubric invocations, 91.1% self-agreement. 2026-11-10, Claude Code
+  2.1.319. Violations: `HYBRID_RESCORED` (6; one each on `clear-winner`,
+  `top-two-inside-noise`, `nine-candidates-overflow` and
+  `escalation-explicit-command`, two on `escalation-declined`) and
+  `RECOMMENDED_MATCHES_TOP` (1, `hard-constraint-excludes-favourite`).
+  All six `HYBRID_RESCORED` runs have the same shape: the self-reported
+  `action.label` is the menu label verbatim, e.g. `Redis (Recommended)`,
+  and the rule strips the marker from offered labels but not from the
+  acted label. That is a checker inconsistency, not a hybrid. With the
+  marker stripped, the pass is 1/45 = 2.2% [0.4%, 11.6%], still above
+  the gate. The `RECOMMENDED_MATCHES_TOP` run is real: after escalating,
+  the agent marked a different option recommended and only re-ran the
+  rubric after the ask. The skill ran from the user-level install
+  (issue #22), whose SKILL.md matched this tree byte for byte.
 - **G4 hermes (glm-5.2:speed): FAIL 17.8%** [9.3%, 31.3%], 45/45 rubric
   invocations, 84.4% self-agreement. Full `--repeat 3` pass (45 runs,
   2026-09-21). Violation mix: `RECOMMENDED_MATCHES_TOP` (5) — the model's
@@ -432,10 +450,10 @@ the placeholder-ized examples in SKILL.md (`0f459c5`) eliminated it on
 both harnesses. Both gates still FAIL the 10% CI gate, but on genuine
 model deviations, not harness bugs.
 
-Remaining: G3 re-run on sonnet produced 0/45 rubric invocations (skill
-never activated) — the 6.7% break rate is all `INJECTION_SURFACED`, not
-protocol breaks. Needs a re-run with skill activation confirmed.
-Investigate the `RECOMMENDED_MATCHES_TOP` cluster (now 5 violations on
+Remaining: make `HYBRID_RESCORED` strip `(Recommended)` from the acted
+label like the other rules do, then re-run G3 (issue #21). The Claude
+driver loads a user-level `~/.claude/skills/tiltrank` install over the
+repo's copy when one exists (issue #22). Investigate the `RECOMMENDED_MATCHES_TOP` cluster (now 5 violations on
 G4 — the model's rubric payload recommends one label but its composed
 menu ranks a different one first); investigate the `NO_INVENTED_OPTIONS`
 cluster (3 violations, all on `hard-constraint-excludes-favourite` —

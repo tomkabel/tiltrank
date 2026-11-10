@@ -409,10 +409,16 @@ Spec tightened rather than the assertion loosened.
 
 ### Still open
 
-- **G3 (Claude/sonnet) re-run incomplete.** The partial run produced 0/45
-  rubric invocations — the skill never activated. The 6.7% break rate is
-  all `INJECTION_SURFACED`, not protocol breaks. Needs a re-run with skill
-  activation confirmed (subscription expired mid-pass).
+- **G3 (Claude) full `--repeat 3` pass ran 2026-11-10** on
+  `claude-sonnet-5-5`, Claude Code 2.1.319: 45/45 rubric invocations,
+  15.6% break rate [7.7%, 28.8% Wilson CI], 91.1% self-agreement. Gate
+  FAILs. 6 of the 7 violations are `HYBRID_RESCORED` flagging an acted
+  label that still carries `(Recommended)`, which is a checker
+  inconsistency (issue #21). Stripped, the pass is 1/45, [0.4%, 11.6%],
+  still above the gate. The earlier "6.7%" sonnet number came from 0/45
+  rubric runs and was not a measurement: the driver inherited
+  `defaultMode: auto`, which denies Bash in headless `claude -p`
+  (issue #1).
 - **G4 (Hermes) full `--repeat 3` pass ran 2026-09-21:** 45/45 rubric
   invocations, 17.8% break rate [9.3%, 31.3% Wilson CI], 84.4%
   self-agreement. Gate still FAILs (CI upper bound 31.3% > 10%). The
