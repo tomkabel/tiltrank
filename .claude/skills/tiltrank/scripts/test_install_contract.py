@@ -35,6 +35,19 @@ def test_primary_command_is_skills_add() -> None:
     assert section.index("npx skills add") < section.index("git clone")
 
 
+def test_removal_uses_the_same_global_scope() -> None:
+    section = quickstart()
+    remove = "npx skills remove tiltrank -g -a claude-code hermes-agent pi -y"
+    pinned = (
+        "npx skills@1.7.4 add tomkabel/tiltrank --skill tiltrank "
+        "-g -a claude-code hermes-agent pi --copy -y"
+    )
+    assert remove in section
+    assert pinned in section
+    assert section.index("npx skills add") < section.index(remove)
+    assert "DISABLE_TELEMETRY=1" in section
+
+
 def test_known_bad_commands_are_gone() -> None:
     section = quickstart()
     forbidden = [
@@ -62,6 +75,7 @@ def test_skill_does_not_hardcode_install_paths() -> None:
     assert ".pi/agent/skills/tiltrank/scripts/rubric.py" not in SKILL
     assert "skill_dir" in SKILL
     assert "CLAUDE_SKILL_DIR" in SKILL
+    assert "Do not run the example as written." in SKILL
 
 
 def test_panel_is_not_sold_as_a_claude_command() -> None:

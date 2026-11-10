@@ -45,11 +45,18 @@ like *Strong lead*, *Contested*, and *Weak*.
 One command installs the skill for Claude Code, Hermes Agent, and pi.
 The copies are independent of this repo. An edit here does not change an
 installed copy, and a local edit does not update anyone else's install.
-Updates arrive with `npx skills update -g`.
 
 ```bash
 npx skills add tomkabel/tiltrank --skill tiltrank -g -a claude-code hermes-agent pi --copy -y
 ```
+
+The same flags remove it. `-g` and `-a` are required: without them, `skills remove` looks in the current project and leaves the global copies in place.
+
+```bash
+npx skills remove tiltrank -g -a claude-code hermes-agent pi -y
+```
+
+Updates use the same global scope: `npx skills update -g`.
 
 That's the install. Then ask your agent to choose between some options:
 
@@ -59,10 +66,14 @@ The skill triggers by itself. You can also call it with `/tiltrank`.
 `/panel` is a pi extension command, not a Claude Code or Hermes command.
 Use it only after the pi extension is installed.
 
-The command pins the skills CLI's own lockfile under `~/.agents/`.
-Verified with skills CLI 1.7.4. There is no version flag. Read that lockfile
-before you call this reproducible. Do not run it if you cannot accept a write
-to that file.
+The command writes the skills CLI's own lockfile under `~/.agents/`.
+Pin the CLI, or the next release can change the flags:
+
+```bash
+npx skills@1.7.4 add tomkabel/tiltrank --skill tiltrank -g -a claude-code hermes-agent pi --copy -y
+```
+
+1.7.4 was still the npm `latest` tag on 2026-11-01. It has no version flag of its own. Read that lockfile before you call this reproducible. Do not run it if you cannot accept a write to that file. Set `DISABLE_TELEMETRY=1` to skip the CLI's usage report.
 
 Claude Code can also install from this repo's own marketplace, which is not
 Anthropic's marketplace. The marketplace file has to be on the default branch
