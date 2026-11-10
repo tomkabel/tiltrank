@@ -36,6 +36,9 @@ jobs:
       - name: install contract
         run: python3 .claude/skills/tiltrank/scripts/test_install_contract.py
 
+      - name: skill contract (SKILL.md wording vs checker rules)
+        run: python3 .claude/skills/tiltrank/scripts/test_skill_contract.py
+
       - name: no stray imports outside the stdlib
         run: |
           python3 - <<'PY'

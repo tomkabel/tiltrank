@@ -75,7 +75,7 @@ def test_skill_does_not_hardcode_install_paths() -> None:
     assert ".pi/agent/skills/tiltrank/scripts/rubric.py" not in SKILL
     assert "skill_dir" in SKILL
     assert "CLAUDE_SKILL_DIR" in SKILL
-    assert "Do not run the example as written." in SKILL
+    assert "Replace `<skill-dir>` with the directory this table names" in SKILL
 
 
 def test_panel_is_not_sold_as_a_claude_command() -> None:
