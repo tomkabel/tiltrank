@@ -283,7 +283,9 @@ with the constraint it fails. **Exclusions shrink the menu; nothing fills the
 gap.** Offer only the user's candidates that survived, even if that leaves two
 or one. Never substitute your own (a renamed or self-hosted variant of the
 excluded one, or any addition, scored or not); mention it in the question body
-and the user can pick it through Other.
+and the user can pick it through Other. If that addition was the script's top
+pick, `(Recommended)` goes on the highest-ranked candidate of the user's that
+survived, and the question body says your addition ranked above it.
 
 In each option's description:
 

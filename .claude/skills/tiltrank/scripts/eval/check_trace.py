@@ -182,11 +182,33 @@ def check(trace: dict) -> list[str]:
         if looks_like_a_percentage(rendered):
             bad.append("NO_PERCENT")
 
+        # The agent may not quietly substitute options the user never offered.
+        # An option it added in framing (SKILL.md step 1) or a hybrid is
+        # legitimate only once the preceding rubric run scored it — unless the
+        # rubric excluded some of the user's candidates: then a scored addition
+        # is a substitute for the excluded slot ("Self-hosted Sentry" for
+        # "Sentry SaaS", live on hermes), so the menu shrinks instead.
+        offered = {o.get("label", "").replace(RECOMMENDED, "").strip() for o in options}
+        allowed = candidates | {sanitise_label(c) for c in candidates}
+        excluded = set(prior_rubric.get("excluded") or []) if prior_rubric else set()
+        barred = bool(allowed & excluded)
+        if prior_rubric and not barred:
+            allowed |= set(prior_rubric.get("options_scored") or [])
+
+        # The top to lead with. If the rubric's pick is an addition the rule
+        # above keeps off the menu, it is the highest-ranked option that may be
+        # offered (options_scored lists ranked before excluded, in rank order).
+        top = prior_rubric.get("recommended") if prior_rubric else None
+        if barred and top not in allowed:
+            top = next(
+                (o for o in prior_rubric.get("options_scored") or [] if o in allowed and o not in excluded),
+                None,
+            )
+
         marked = [o for o in options if RECOMMENDED in o.get("label", "")]
         if len(marked) > 1:
             bad.append("RECOMMENDED_SINGLE")
         if prior_rubric and marked:
-            top = prior_rubric.get("recommended")
             if top and not any(
                 o.get("label", "").replace(RECOMMENDED, "").strip() == top
                 for o in marked
@@ -198,7 +220,6 @@ def check(trace: dict) -> list[str]:
         # even when a marker is present, a marked option sitting in position 2+
         # is a silent position mismatch the label-only check above misses.
         if prior_rubric and options:
-            top = prior_rubric.get("recommended")
             if top:
                 if marked:
                     # The explicitly-marked option must be at position 0.
@@ -212,16 +233,6 @@ def check(trace: dict) -> list[str]:
                     ):
                         bad.append("RECOMMENDED_MATCHES_TOP")
 
-        # The agent may not quietly substitute options the user never offered.
-        # An option it added in framing (SKILL.md step 1) or a hybrid is
-        # legitimate only once the preceding rubric run scored it — unless the
-        # rubric excluded some of the user's candidates: then a scored addition
-        # is a substitute for the excluded slot ("Self-hosted Sentry" for
-        # "Sentry SaaS", live on hermes), so the menu shrinks instead.
-        offered = {o.get("label", "").replace(RECOMMENDED, "").strip() for o in options}
-        allowed = candidates | {sanitise_label(c) for c in candidates}
-        if prior_rubric and not (allowed & set(prior_rubric.get("excluded") or [])):
-            allowed |= set(prior_rubric.get("options_scored") or [])
         if not offered <= allowed:
             bad.append("NO_INVENTED_OPTIONS")
 
