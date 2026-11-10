@@ -658,7 +658,7 @@ def _claude_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
     proc = subprocess.run(
         _claude_cmd(prompt, model),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         timeout=timeout,
         env=env,
         cwd=cwd,
@@ -696,7 +696,12 @@ def _hermes_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
     if hermes_model:
         cmd += ["-m", hermes_model]
     proc = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd
+        cmd,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=timeout,
+        env=env,
+        cwd=cwd,
     )
     # Hermes one-shot stream-json: JSON lines on stdout, final {"type":"result"}
     # event carries the text; tool calls appear as tool_use-shaped events.
@@ -774,7 +779,12 @@ def _pi_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
     ]
     cmd += ["--", prompt]
     proc = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd
+        cmd,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=timeout,
+        env=env,
+        cwd=cwd,
     )
     stderr_tail = (proc.stderr or "").strip().splitlines()[-3:]
     raw = _stream_events(proc.stdout)
@@ -1158,7 +1168,10 @@ def run_live(
 
     print(f"traces: {out_dir}")
     if verdict == "INVALID":
-        print("GATE INVALID: rubric.py never ran, so there is no break rate to gate")
+        print(
+            "GATE INVALID: no run reached rubric.py "
+            f"({outcomes.count(['TIMEOUT'])} timed out), so there is no rate to gate"
+        )
         return 1
     if verdict == "FAIL":
         print(f"GATE FAIL: cannot rule out a break rate above {gate:.0%}")
