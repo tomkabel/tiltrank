@@ -148,6 +148,52 @@ def test_live_rubric_events_carry_every_scored_label() -> None:
     assert event["options_scored"] == ["A", "Hybrid", "C"] and event["excluded"] == ["C"]
 
 
+# --------------------------------------------------------------------------- #
+# every checker rule: stated in SKILL.md, and guarded by a fixture
+# --------------------------------------------------------------------------- #
+
+CHECK_TRACE = HERE / "eval" / "check_trace.py"
+EMITTED = re.compile(r'bad\.append\("([A-Z_]+)"\)')
+
+
+def _normalise(text: str) -> str:
+    return " ".join(text.replace("*", "").split())
+
+
+def test_every_emitted_rule_is_registered() -> None:
+    import check_trace  # pyright: ignore[reportMissingImports]
+    emitted = set(EMITTED.findall(CHECK_TRACE.read_text()))
+    assert emitted == set(check_trace.RULES), (
+        f"emitted but unregistered: {emitted - set(check_trace.RULES)}; "
+        f"registered but never emitted: {set(check_trace.RULES) - emitted}")
+
+
+def test_every_rule_is_stated_in_skill_md() -> None:
+    """A rule only in code isn't followed. Each rule id quotes its SKILL.md sentence."""
+    import check_trace  # pyright: ignore[reportMissingImports]
+    skill = _normalise(SKILL)
+    missing = {code: quote for code, quote in check_trace.RULES.items() if _normalise(quote) not in skill}
+    assert not missing, f"rule wording not found in SKILL.md: {missing}"
+
+
+def test_every_rule_goes_red_when_disabled() -> None:
+    """Mutation test. Delete each rule's `bad.append` from the source, reload the
+    module, and run the fixtures: at least one must fail, or the rule is unguarded."""
+    import check_trace  # pyright: ignore[reportMissingImports]
+    source = CHECK_TRACE.read_text()
+    cases = json.loads((HERE / "eval" / "fixtures.json").read_text())
+    unguarded = []
+    for code in check_trace.RULES:
+        mutant = source.replace(f'bad.append("{code}")', "pass")
+        assert mutant != source, code
+        ns: dict = {"__name__": "check_trace_mutant", "__file__": str(CHECK_TRACE)}
+        exec(compile(mutant, str(CHECK_TRACE), "exec"), ns)  # noqa: S102 - our own source
+        red = [c["name"] for c in cases if ns["check"](c["trace"]) != sorted(c["expect_violations"])]
+        if not red:
+            unguarded.append(code)
+    assert not unguarded, f"no fixture goes red when these rules are disabled: {unguarded}"
+
+
 def run_all() -> None:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     failed = []
