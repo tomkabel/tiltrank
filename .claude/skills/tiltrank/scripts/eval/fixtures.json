@@ -1424,5 +1424,176 @@
           }
         ]
       }
+    },
+  {
+    "name": "clean-added-candidate-scored-before-ask",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "added-candidate",
+      "candidates": [
+        "Redis streams",
+        "RabbitMQ"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Redis streams",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Redis streams",
+            "RabbitMQ",
+            "Postgres SKIP LOCKED"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Redis streams (Recommended)",
+              "description": "Strong lead \u2014 already deployed, but a second job store to back up"
+            },
+            {
+              "label": "Postgres SKIP LOCKED",
+              "description": "Contested \u2014 no new infra, but polling load on the primary"
+            },
+            {
+              "label": "RabbitMQ",
+              "description": "Weak field \u2014 new infra the constraints rule out"
+            }
+          ]
+        }
+      ]
     }
+  },
+  {
+    "name": "REGRESSION-added-candidate-never-scored",
+    "expect_violations": [
+      "NO_INVENTED_OPTIONS"
+    ],
+    "trace": {
+      "scenario": "added-candidate",
+      "candidates": [
+        "Redis streams",
+        "RabbitMQ"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Redis streams",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Redis streams",
+            "RabbitMQ"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Redis streams (Recommended)",
+              "description": "Strong lead \u2014 already deployed, but a second job store to back up"
+            },
+            {
+              "label": "Postgres SKIP LOCKED",
+              "description": "Contested \u2014 no new infra, but polling load on the primary"
+            },
+            {
+              "label": "RabbitMQ",
+              "description": "Weak field \u2014 new infra the constraints rule out"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "clean-agent-generated-options-all-scored",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "agent-generated-options",
+      "candidates": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Postgres",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Postgres",
+            "SQLite"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Postgres (Recommended)",
+              "description": "Strong lead — already run in prod, but heavier to operate"
+            },
+            {
+              "label": "SQLite",
+              "description": "Contested — zero ops, but one writer at a time"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-agent-generated-option-never-scored",
+    "expect_violations": [
+      "NO_INVENTED_OPTIONS"
+    ],
+    "trace": {
+      "scenario": "agent-generated-options",
+      "candidates": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Postgres",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Postgres",
+            "SQLite"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Postgres (Recommended)",
+              "description": "Strong lead — already run in prod, but heavier to operate"
+            },
+            {
+              "label": "DynamoDB",
+              "description": "Never scored — slipped in after the rubric ran"
+            }
+          ]
+        }
+      ]
+    }
+  }
 ]

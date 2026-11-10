@@ -44,7 +44,8 @@ A trace is:
      "candidates": [str, ...],
      "events": [
         {"type": "rubric",     "recommended": str, "separated": bool,
-                               "reasons": [str], "excluded": [str]},
+                               "reasons": [str], "excluded": [str],
+                               "options_scored": [str]},
         {"type": "flag",       "kind": "injection", "label": str},
         {"type": "escalation", "ran": bool},
         {"type": "ask",        "options": [{"label": str, "description": str}]},
@@ -169,8 +170,13 @@ def check(trace: dict) -> list[str]:
                         bad.append("RECOMMENDED_MATCHES_TOP")
 
         # The agent may not quietly substitute options the user never offered.
+        # An option it added in framing (SKILL.md step 1) or a hybrid is
+        # legitimate only once the preceding rubric run scored it.
         offered = {o.get("label", "").replace(RECOMMENDED, "").strip() for o in options}
-        if candidates and not offered <= candidates:
+        allowed = candidates | {sanitise_label(c) for c in candidates}
+        if prior_rubric:
+            allowed |= set(prior_rubric.get("options_scored") or [])
+        if not offered <= allowed:
             bad.append("NO_INVENTED_OPTIONS")
 
         # An option gated out on a hard constraint must not be presented.
@@ -595,6 +601,21 @@ def minimal_env(extra: dict[str, str]) -> dict[str, str]:
     return env
 
 
+def _verified_rubric_events(rubric_runs: list[dict]) -> list[dict]:
+    """Trace rubric events built from rubric.py's own log lines, not narration."""
+    return [
+        {
+            "type": "rubric",
+            "recommended": r["verdict"]["recommended"],
+            "separated": r["verdict"]["separated"],
+            "reasons": r["verdict"]["reasons"],
+            "excluded": [e["label"] for e in r["verdict"]["excluded"]],
+            "options_scored": [e["label"] for e in (*r["verdict"]["ranked"], *r["verdict"]["excluded"])],
+        }
+        for r in rubric_runs
+    ]
+
+
 def run_one(sc: dict, model: str, out_dir: Path, run_id: str, driver: str = "claude") -> dict:
     """One headless run. Returns a trace dict with its evidence classes labelled."""
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -683,16 +704,7 @@ def run_one(sc: dict, model: str, out_dir: Path, run_id: str, driver: str = "cla
     # Replace the self-reported rubric events with the ones the script really
     # emitted. The agent does not get to narrate the step we can measure.
     if rubric_runs:
-        verified = [
-            {
-                "type": "rubric",
-                "recommended": r["verdict"]["recommended"],
-                "separated": r["verdict"]["separated"],
-                "reasons": r["verdict"]["reasons"],
-                "excluded": [e["label"] for e in r["verdict"]["excluded"]],
-            }
-            for r in rubric_runs
-        ]
+        verified = _verified_rubric_events(rubric_runs)
         others = [e for e in trace["events"] if e.get("type") != "rubric"]
         trace["events"] = verified[:1] + others + verified[1:]
     return trace

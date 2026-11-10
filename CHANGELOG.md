@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Malformed payloads (`10**400`, non-object choices or weights, non-string labels) produced tracebacks. Every one is now a one-line `error:` with exit 1, checked by a mutation fuzz over a logged payload.
 - `timed_out: "false"` logged as true, and a pick matching no label was accepted. `timed_out` and `escalated` must be booleans, and `pick` must name an option. The ask's `(Recommended)` marker is stripped first, so a verbatim pick no longer logs a false divergence.
 - `label: null` became an option called `None`.
+- SKILL.md told the agent both to run the invocation "as written" and not to, and the Claude Code table quoted a path the unquoted `allowed-tools` prefix never matched. One instruction now, pinned by `test_skill_contract.py`.
+- Only the Hermes row said the recommended option goes first, while the checker enforced index 0 on every harness (issue #2). Every row says it now.
+- Step 4 had no rule that labels come verbatim from the scored payload, and its template offered an "Option D" nothing had scored (issue #3). Step 1's "add the missing candidate" now routes through the payload, and `NO_INVENTED_OPTIONS` accepts any label the preceding rubric run scored (`options_scored`, read from the log on live runs).
 - The injection flag missed zero-width splits, fullwidth text, `wget`, `base64 -d`, `sudo`, `eval`, `rm -fr` and "ignore the previous instructions". SKILL.md now calls it a best-effort keyword flag, not detection.
 
 ### Changed
