@@ -88,10 +88,15 @@ MAX_OPTIONS = 4
 RECOMMENDED = "(Recommended)"
 
 
-def _bare(label: str | None) -> str | None:
+def _bare(label):
     """A label without the ask's own marker. An answer or action copied
-    verbatim from the menu carries it; rubric.py strips it from `pick` too."""
-    return label.replace(RECOMMENDED, "").strip() if label else label
+    verbatim from the menu carries it; rubric.py strips it from `pick` too.
+    Labels are self-reported: a non-string is stringified, so it fails the
+    comparisons (and stays hashable for set lookups) instead of crashing the
+    live pass. None stays None: no pick was made."""
+    if label is None:
+        return None
+    return str(label).replace(RECOMMENDED, "").strip()
 
 
 # Every rule id check() can emit, with the SKILL.md sentence that states it.
