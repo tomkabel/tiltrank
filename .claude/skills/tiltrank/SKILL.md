@@ -152,7 +152,7 @@ Run it. Resolve the script path from the skill's own directory, not from a guess
 | Hermes Agent | `python3 "$skill_dir/scripts/rubric.py"` via the `terminal` tool. `skill_dir` is the directory `skill_view` reports for the loaded skill. |
 | pi | `python3 "{baseDir}/scripts/rubric.py"` via `bash`, when the harness substitutes `{baseDir}`. |
 
-On Hermes, pass `skill_dir` from `skill_view` to the `terminal` tool. Do not guess a path under `~/.hermes/skills/`. On pi, prefer `{baseDir}/scripts/rubric.py`. Do not guess a path under `~/.pi/agent/skills/`.
+On Hermes, pass `skill_dir` from `skill_view` to the `terminal` tool. Do not guess a path under `~/.hermes/skills/`. On pi, prefer `{baseDir}/scripts/rubric.py`. Do not guess a path under `~/.pi/agent/skills/`. The example below uses the placeholder `<skill-dir>` so it cannot be copied as a real path. Substitute the directory this table names for the harness you are in. Do not run the example as written.
 
 The payload contract is identical everywhere — a single JSON object on stdin.
 **Use the candidates from the user's scenario, not the labels below** — the

@@ -31,3 +31,6 @@ dp-eval-*/
 
 # Local installs of the pi extension. CI uses the lockfile.
 node_modules/
+
+# Local Hermes planning notes.
+.hermes/

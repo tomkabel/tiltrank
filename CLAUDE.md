@@ -42,4 +42,4 @@ CI (`.github/workflows/test.yml`) runs on Python 3.10 and 3.13 and fails on any 
 - **New behaviour needs a fixture**: any protocol-rule change gets a labelled trace in `fixtures.json`, including a deliberately broken variant that must go red.
 - **No dependencies**: no `requirements.txt`, `pyproject.toml`, or vendored packages.
 - Changing scoring/protocol semantics usually means touching `SKILL.md`, `rubric.py`, and `check_trace.py` together — a rule only in prose isn't enforced, a rule only in code isn't followed.
-- Harness install quirks (Hermes and pi don't follow symlinked skill dirs for discovery) are documented in `README.md#install` and `docs/porting-hermes-pi.md`. `PLAN.md` is design history, not a task list.
+- Harness install quirks (Hermes and pi don't follow symlinked skill dirs for discovery) are documented in `README.md` under Quick start and in `docs/porting-hermes-pi.md`. `PLAN.md` is design history, not a task list.
