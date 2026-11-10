@@ -214,10 +214,13 @@ def check(trace: dict) -> list[str]:
 
         # The agent may not quietly substitute options the user never offered.
         # An option it added in framing (SKILL.md step 1) or a hybrid is
-        # legitimate only once the preceding rubric run scored it.
+        # legitimate only once the preceding rubric run scored it — unless the
+        # rubric excluded some of the user's candidates: then a scored addition
+        # is a substitute for the excluded slot ("Self-hosted Sentry" for
+        # "Sentry SaaS", live on hermes), so the menu shrinks instead.
         offered = {o.get("label", "").replace(RECOMMENDED, "").strip() for o in options}
         allowed = candidates | {sanitise_label(c) for c in candidates}
-        if prior_rubric:
+        if prior_rubric and not (candidates and prior_rubric.get("excluded")):
             allowed |= set(prior_rubric.get("options_scored") or [])
         if not offered <= allowed:
             bad.append("NO_INVENTED_OPTIONS")

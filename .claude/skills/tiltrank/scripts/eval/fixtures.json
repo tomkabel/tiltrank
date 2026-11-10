@@ -514,6 +514,109 @@
     }
   },
   {
+    "name": "REGRESSION-invented-option-after-exclusion",
+    "expect_violations": [
+      "NO_INVENTED_OPTIONS"
+    ],
+    "trace": {
+      "scenario": "hard-constraint-excludes-favourite",
+      "candidates": [
+        "Sentry SaaS",
+        "Self-hosted GlitchTip",
+        "Datadog",
+        "Rollbar"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Self-hosted GlitchTip",
+          "separated": true,
+          "reasons": [],
+          "excluded": [
+            "Sentry SaaS",
+            "Datadog"
+          ],
+          "options_scored": [
+            "Self-hosted GlitchTip",
+            "Rollbar",
+            "Self-hosted Sentry",
+            "Sentry SaaS",
+            "Datadog"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Self-hosted GlitchTip (Recommended)",
+              "description": "Strong lead \u2014 meets the self-hosted requirement, but a smaller ecosystem"
+            },
+            {
+              "label": "Rollbar",
+              "description": "Contested \u2014 mature, but needs its on-prem tier"
+            },
+            {
+              "label": "Self-hosted Sentry",
+              "description": "Contested \u2014 scored, but a substitute for the excluded Sentry SaaS"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "clean-honest-menu-after-exclusion",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "hard-constraint-excludes-favourite",
+      "candidates": [
+        "Sentry SaaS",
+        "Self-hosted GlitchTip",
+        "Datadog",
+        "Rollbar"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Self-hosted GlitchTip",
+          "separated": true,
+          "reasons": [],
+          "excluded": [
+            "Sentry SaaS",
+            "Datadog"
+          ],
+          "options_scored": [
+            "Self-hosted GlitchTip",
+            "Rollbar",
+            "Sentry SaaS",
+            "Datadog"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Self-hosted GlitchTip (Recommended)",
+              "description": "Strong lead \u2014 meets the self-hosted requirement, but a smaller ecosystem"
+            },
+            {
+              "label": "Rollbar",
+              "description": "Contested \u2014 mature, but needs its on-prem tier"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
     "name": "REGRESSION-contested-without-escalation",
     "expect_violations": [
       "ESCALATION_WHEN_CONTESTED"

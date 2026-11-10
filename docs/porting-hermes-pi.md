@@ -441,6 +441,21 @@ menu ranks a different one first); investigate the `NO_INVENTED_OPTIONS`
 cluster (3 violations, all on `hard-constraint-excludes-favourite` —
 the model invents options not in the input set).
 
+**`NO_INVENTED_OPTIONS` follow-up (#3, 2026-11-10).** glm-5.2:speed is
+out of credits on melious, so this ran `z-ai/glm-5.2` via OpenRouter,
+`--only hard-constraint-excludes-favourite --repeat 5`, against the
+worktree skill (temp `HERMES_HOME` whose `external_dirs` points at it).
+On hermes 0.23 the gateway runs the tools, and `TILTRANK_LOG` only reaches
+them if `terminal.client_env_passthrough` lists `TILTRANK_LOG` and
+`TILTRANK_LOG_BASE`. Without that, `ran_rubric` is false on every run.
+Before: 3/5 runs offered "Self-hosted Sentry" in place of the excluded
+Sentry SaaS. The checker missed it because the model had put the
+substitute into its payload, and a scored addition counted as legitimate.
+After the checker fix (once the rubric excludes any user candidate, only
+user candidates may be offered) and the SKILL.md wording in steps 1 and 4,
+there were 0/5 `NO_INVENTED_OPTIONS` violations, the rubric ran in 5/5,
+and there was 1 unrelated `ESCALATION_WHEN_CONTESTED` (over-escalation).
+
 ## What does NOT port (documented, don't re-solve)
 
 - The `claude plugin validate` CI step → Hermes: its validator script;
