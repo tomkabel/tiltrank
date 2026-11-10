@@ -220,7 +220,7 @@ def check(trace: dict) -> list[str]:
         # "Sentry SaaS", live on hermes), so the menu shrinks instead.
         offered = {o.get("label", "").replace(RECOMMENDED, "").strip() for o in options}
         allowed = candidates | {sanitise_label(c) for c in candidates}
-        if prior_rubric and not (candidates and prior_rubric.get("excluded")):
+        if prior_rubric and not (allowed & set(prior_rubric.get("excluded") or [])):
             allowed |= set(prior_rubric.get("options_scored") or [])
         if not offered <= allowed:
             bad.append("NO_INVENTED_OPTIONS")
