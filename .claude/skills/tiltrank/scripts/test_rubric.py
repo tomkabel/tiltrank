@@ -530,6 +530,9 @@ def test_claude_driver_can_activate_the_skill_and_run_the_rubric() -> None:
     assert cmd[cmd.index("--permission-mode") + 1] == "dontAsk"
     allowed = cmd[cmd.index("--allowed-tools") + 1].split(",")
     assert {"Skill", "Bash"} <= set(allowed), allowed
+    # Issue #22: no user-level skills, CLAUDE.md or MCP servers in the child.
+    assert cmd[cmd.index("--setting-sources") + 1] == "project,local"
+    assert "--strict-mcp-config" in cmd
     # Bare Bash with an `rm -rf` scenario is only acceptable inside the OS
     # sandbox, with no unsandboxed fallback, the repo write-denied, and the
     # log dir writable so rubric.py can still record ground truth.

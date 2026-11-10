@@ -672,6 +672,14 @@ def _claude_cmd(
         "Skill,Bash,Read,Grep,Glob",
         "--settings",
         json.dumps({"sandbox": sandbox}),
+        # Measure the skill, not the operator's setup. Without these the child
+        # loads ~/.claude/CLAUDE.md, user skills and MCP servers: the Skill tool
+        # resolved a user-level tiltrank copy instead of the tree under test
+        # (#22), and escalation went to the operator's docs MCP, which dontAsk
+        # then denied (7 ESCALATION_WHEN_CONTESTED on 2026-11-10).
+        "--setting-sources",
+        "project,local",
+        "--strict-mcp-config",
     ]
 
 
