@@ -374,7 +374,7 @@ def check(trace: dict) -> list[str]:
 
 
 def run_fixtures() -> int:
-    cases = json.loads((HERE / "fixtures.json").read_text())
+    cases = json.loads((HERE / "fixtures.json").read_text(encoding="utf-8"))
     failures = 0
     for case in cases:
         expected = sorted(case["expect_violations"])
@@ -622,36 +622,112 @@ HERMES_MODEL_FLAG = os.environ.get("HERMES_EVAL_MODEL", "")
 # the vacuous-trace guard below catches it, but pinning the authed provider
 # makes runs deterministic. Override with PI_EVAL_MODEL.
 PI_MODEL_FLAG = os.environ.get("PI_EVAL_MODEL", "deepseek-v4-pro")
-CLAUDE_MODEL_FLAG = os.environ.get("CLAUDE_EVAL_MODEL", "")
+# The model the README and docs/porting-hermes-pi.md document for G3.
+CLAUDE_DEFAULT_MODEL = "claude-sonnet-5-5"
+
+
+def _claude_cmd(
+    prompt: str, model: str, deny_write: list[Path], log_dir: Path
+) -> list[str]:
+    # --permission-mode is pinned because the child otherwise inherits the
+    # operator's defaultMode. Under "auto" a headless session cannot run the
+    # safety check, so every Bash call (rubric.py included) is denied and
+    # --allowed-tools does not help; that is what produced 0/45 rubric runs
+    # (issue #1). dontAsk denies whatever is not listed here, so the list must
+    # include Skill (activation) and bare Bash: a scoped Bash(python3 ...)
+    # rule, the skill's own allowed-tools included, does not match the heredoc
+    # the skill documents. Denied calls still appear as tool_use events.
+    #
+    # Bare Bash is granted only inside Claude Code's OS sandbox: writes are
+    # confined to the per-user temp dir and the run's log dir (rubric.py
+    # appends $TILTRANK_LOG there), the repo and its git dir are write-denied
+    # (the sandbox otherwise lets a linked worktree write the shared .git),
+    # allowUnsandboxedCommands=false removes the per-command escape hatch, and
+    # failIfUnavailable=true makes claude exit instead of silently running
+    # unsandboxed when bwrap/socat are missing. An agent that obeys the
+    # `rm -rf` candidate can damage only those two dirs, which is why --out
+    # must be empty. cwd stays the repo so the project skill is discovered.
+    sandbox = {
+        "enabled": True,
+        "failIfUnavailable": True,
+        "autoAllowBashIfSandboxed": True,
+        "allowUnsandboxedCommands": False,
+        "filesystem": {
+            "allowWrite": [str(log_dir)],
+            "denyWrite": [str(p) for p in deny_write],
+        },
+    }
+    return [
+        "claude",
+        "-p",
+        prompt,
+        "--model",
+        model,
+        "--output-format",
+        "stream-json",
+        "--verbose",
+        "--permission-mode",
+        "dontAsk",
+        "--allowed-tools",
+        "Skill,Bash,Read,Grep,Glob",
+        "--settings",
+        json.dumps({"sandbox": sandbox}),
+        # Measure the skill, not the operator's setup. Without these the child
+        # loads ~/.claude/CLAUDE.md, user skills and MCP servers: the Skill tool
+        # resolved a user-level tiltrank copy instead of the tree under test
+        # (#22), and escalation went to the operator's docs MCP, which dontAsk
+        # then denied (7 ESCALATION_WHEN_CONTESTED on 2026-11-10).
+        "--setting-sources",
+        "project,local",
+        "--strict-mcp-config",
+    ]
+
+
+def _deny_write(cwd: Path) -> list[Path]:
+    """The repo, plus its git common dir: a linked worktree's .git lives
+    outside cwd, and the sandbox leaves it writable unless denied."""
+    deny = [cwd.resolve()]
+    try:
+        git = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True,
+            encoding="utf-8",
+            cwd=cwd,
+        )
+    except FileNotFoundError:  # no git on PATH: nothing more to deny
+        return deny
+    if git.returncode == 0 and git.stdout.strip():
+        common = Path(git.stdout.strip()).resolve()
+        if not common.is_relative_to(deny[0]):
+            deny.append(common)
+    return deny
 
 
 def _claude_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
-    # Model resolution order: explicit env override, then the CLI --model
-    # threaded through by main() (the README's documented default "sonnet"
-    # must actually reach the driver — an earlier version read this flag at
-    # import time, so --model was dead and the documented command silently
-    # ran opus), then the pre-port adapter default.
-    model = env.get("CLAUDE_EVAL_MODEL") or "claude-opus-4-5"
+    # run_one threads the CLI --model in as CLAUDE_EVAL_MODEL; without one
+    # the documented default runs.
+    model = env.get("CLAUDE_EVAL_MODEL") or CLAUDE_DEFAULT_MODEL
+    log_dir = Path(env["TILTRANK_LOG_BASE"])
+    deny = _deny_write(cwd)
+    if any(log_dir.is_relative_to(d) for d in deny):
+        # denyWrite would win and rubric.py could not log.
+        raise RuntimeError(f"--out must be outside the repo and .git: {log_dir}")
     proc = subprocess.run(
-        [
-            "claude",
-            "-p",
-            prompt,
-            "--model",
-            model,
-            "--output-format",
-            "stream-json",
-            "--verbose",
-            "--allowed-tools",
-            "Bash,Read,Grep,Glob",
-        ],
+        _claude_cmd(prompt, model, deny, log_dir),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         timeout=timeout,
         env=env,
         cwd=cwd,
     )
     events = _stream_events(proc.stdout)
+    if proc.returncode != 0 and not any(e.get("type") == "assistant" for e in events):
+        # e.g. failIfUnavailable refusing to start without a sandbox. Fail
+        # loudly instead of scoring an empty trace as "not activated".
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]
+        raise RuntimeError(
+            f"claude driver failed (rc={proc.returncode}): {' | '.join(tail)}"
+        )
     return events, _tools_used(events)
 
 
@@ -684,7 +760,12 @@ def _hermes_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
     if hermes_model:
         cmd += ["-m", hermes_model]
     proc = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd
+        cmd,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=timeout,
+        env=env,
+        cwd=cwd,
     )
     # Hermes one-shot stream-json: JSON lines on stdout, final {"type":"result"}
     # event carries the text; tool calls appear as tool_use-shaped events.
@@ -762,7 +843,12 @@ def _pi_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
     ]
     cmd += ["--", prompt]
     proc = subprocess.run(
-        cmd, capture_output=True, text=True, timeout=timeout, env=env, cwd=cwd
+        cmd,
+        capture_output=True,
+        encoding="utf-8",
+        timeout=timeout,
+        env=env,
+        cwd=cwd,
     )
     stderr_tail = (proc.stderr or "").strip().splitlines()[-3:]
     raw = _stream_events(proc.stdout)
@@ -973,7 +1059,7 @@ def run_one(
     # Ground truth: what rubric.py actually saw and returned.
     rubric_runs = []
     if log_path.exists():
-        for line in log_path.read_text().splitlines():
+        for line in log_path.read_text(encoding="utf-8").splitlines():
             if line.strip():
                 rubric_runs.append(json.loads(line))
 
@@ -1005,6 +1091,15 @@ def run_one(
         },
         "tools": tools_used,
         "tool_calls": _tool_calls(events),
+        # claude's final result event lists every call the permission layer
+        # refused; a harness that blocks rubric.py shows up here, not as a
+        # protocol break.
+        "permission_denials": [
+            d
+            for e in events
+            if e.get("type") == "result"
+            for d in e.get("permission_denials") or []
+        ],
         "rubric_runs": rubric_runs,
         "ran_rubric": bool(rubric_runs),
         "rubric_ground_truth": bool(rubric_runs),
@@ -1022,6 +1117,32 @@ def run_one(
     return trace
 
 
+def live_verdict(
+    outcomes: list[list[str] | None], gate: float
+) -> tuple[str, int, int, int]:
+    """(verdict, broken, scored, activated) for a live pass.
+
+    One outcome per run: the violations of a run where rubric.py ran (empty
+    means clean), ["TIMEOUT"] for a hung run, or None where rubric.py never
+    wrote to the log. A None run never exercised the skill, so it is evidence
+    of nothing about the protocol: it stays out of the break-rate denominator
+    instead of counting as clean, or as a RUBRIC_BEFORE_ASK break. If no run
+    activated, there is no rate to gate and the verdict is INVALID. Issue #1
+    reported 6.7% from 0/45 activated runs.
+
+    Timeouts still count as breaks, as before.
+    """
+    # ponytail: a run that loaded the skill and then skipped rubric.py also
+    # lands in None; split on a Skill / SKILL.md-read tool call if that matters.
+    scored = [o for o in outcomes if o is not None]
+    broken = sum(1 for o in scored if o)
+    activated = sum(1 for o in scored if o != ["TIMEOUT"])
+    if not activated:
+        return "INVALID", broken, len(scored), 0
+    _, hi = wilson(broken, len(scored))
+    return ("FAIL" if hi > gate else "PASS"), broken, len(scored), activated
+
+
 def run_live(
     model: str,
     repeat: int,
@@ -1030,15 +1151,17 @@ def run_live(
     only: str | None,
     driver: str = "claude",
 ) -> int:
-    scenarios = json.loads((HERE / "scenarios.json").read_text())
+    scenarios = json.loads((HERE / "scenarios.json").read_text(encoding="utf-8"))
     if only:
         scenarios = [s for s in scenarios if s["id"] == only]
         if not scenarios:
             raise SystemExit(f"error: no scenario with id {only!r}")
+    # The live agent can write (and delete) inside out_dir; never let that be
+    # a directory holding anything else, such as /tmp itself.
+    if out_dir.exists() and any(out_dir.iterdir()):
+        raise SystemExit(f"error: --out {out_dir} must be a new or empty directory")
     out_dir.mkdir(parents=True, exist_ok=True)
-    runs = 0
-    broken = 0
-    no_rubric = 0
+    outcomes: list[list[str] | None] = []
     per_scenario: dict[str, list[str | None]] = {}
 
     for sc in scenarios:
@@ -1046,19 +1169,26 @@ def run_live(
         for k in range(repeat):
             run_id = f"{sc['id']}.{k}"
             trace = run_one(sc, model, out_dir, run_id, driver=driver)
-            (out_dir / f"{run_id}.json").write_text(json.dumps(trace, indent=2))
-            runs += 1
+            (out_dir / f"{run_id}.json").write_text(
+                json.dumps(trace, indent=2), encoding="utf-8"
+            )
 
             if trace.get("error") == "timeout":
-                broken += 1
+                outcomes.append(["TIMEOUT"])
                 print(f"  FAIL {run_id:<38} timeout")
                 recs.append(None)
                 continue
             if not trace["ran_rubric"]:
-                no_rubric += 1
+                outcomes.append(None)
+                denied = len(trace.get("permission_denials") or [])
+                print(
+                    f"  SKIP {run_id:<38} not activated: rubric.py never ran "
+                    f"({denied} permission denials)"
+                )
+                recs.append(None)
+                continue
             violations = check(trace)
-            if violations:
-                broken += 1
+            outcomes.append(violations)
             rec = next(
                 (
                     e["recommended"]
@@ -1074,11 +1204,21 @@ def run_live(
             )
         per_scenario[sc["id"]] = recs
 
-    rate = broken / runs if runs else 0.0
-    lo, hi = wilson(broken, runs)
+    verdict, broken, scored, activated = live_verdict(outcomes, gate)
+    runs = len(outcomes)
+    lo, hi = wilson(broken, scored)
     print(f"\nruns: {runs} ({len(scenarios)} scenarios x {repeat})")
-    print(f"protocol-break rate: {rate:.1%}  95% CI [{lo:.1%}, {hi:.1%}]")
-    print(f"skill invoked (rubric.py ran): {runs - no_rubric}/{runs}")
+    print(
+        f"skill activated (rubric.py ran): {activated}/{runs}; "
+        f"{outcomes.count(None)} not activated, excluded from the rate"
+    )
+    if scored:
+        print(
+            f"protocol-break rate: {broken / scored:.1%}  95% CI "
+            f"[{lo:.1%}, {hi:.1%}] over {scored} scored runs"
+        )
+        rules = Counter(v for o in outcomes if o for v in o)
+        print(f"violations by rule: {dict(rules.most_common()) or 'none'}")
 
     if repeat > 1:
         # The empirical number the old hardcoded noise band was standing in for.
@@ -1095,7 +1235,13 @@ def run_live(
             )
 
     print(f"traces: {out_dir}")
-    if hi > gate:
+    if verdict == "INVALID":
+        print(
+            "GATE INVALID: no run reached rubric.py "
+            f"({outcomes.count(['TIMEOUT'])} timed out), so there is no rate to gate"
+        )
+        return 1
+    if verdict == "FAIL":
         print(f"GATE FAIL: cannot rule out a break rate above {gate:.0%}")
         return 1
     return 0
@@ -1112,7 +1258,7 @@ def main() -> int:
         "--model",
         default=None,
         help="model for --live runs (all drivers; default: per-driver "
-        "fallback — claude-opus-4-5 / hermes profile default / "
+        f"fallback — {CLAUDE_DEFAULT_MODEL} / hermes profile default / "
         "pi's authed deepseek-v4-pro)",
     )
     ap.add_argument(

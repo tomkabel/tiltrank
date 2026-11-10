@@ -212,7 +212,7 @@ can later check whether the recommendations held up.
 S=.claude/skills/tiltrank/scripts
 python3 $S/test_rubric.py          # scoring, gating, validation
 python3 $S/eval/check_trace.py     # agent-behaviour checks on recorded traces
-python3 $S/eval/check_trace.py --live --driver claude --repeat 3   # real sessions, costs tokens
+python3 $S/eval/check_trace.py --live --driver claude --model claude-sonnet-5-5 --repeat 3   # real sessions, costs tokens
 ```
 
 A skill is a prompt, so the main risk is the agent not following it.
@@ -234,7 +234,12 @@ Every rule has a deliberately broken example in `fixtures.json` that must fail.
 
 The offline suite runs in CI. A full live pass on Hermes (15 scenarios × 3
 repeats, 2026-09-21) broke protocol in 17.8% of runs (95% CI 9.3–31.3%), above
-the 10% gate. These are genuine model deviations, not harness bugs. See
+the 10% gate. These are genuine model deviations, not harness bugs. On Claude
+(`claude-sonnet-5-5`, Claude Code 2.1.319, 2026-11-10), all 45 runs invoked the
+rubric and 17.8% broke protocol (95% CI 9.3–31.3%), also above the gate. Six of
+those nine breaks come from a checker bug
+([#21](https://github.com/tomkabel/tiltrank/issues/21)); without it the same
+runs score 6.7% (95% CI 2.3–17.9%), still above the gate. See
 [PLAN.md](PLAN.md).
 
 Headless `claude -p` has no `AskUserQuestion` tool, so menu contents in live runs
