@@ -34,3 +34,4 @@ node_modules/
 
 # Local Hermes planning notes.
 .hermes/
+.claude/worktrees/
