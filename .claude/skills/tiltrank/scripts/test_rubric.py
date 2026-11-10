@@ -524,7 +524,9 @@ def test_claude_driver_can_activate_the_skill_and_run_the_rubric() -> None:
     pinned dontAsk mode anything unlisted is denied, Skill included."""
     import check_trace as ct  # pyright: ignore[reportMissingImports]
 
-    cmd = ct._claude_cmd("p", "m", Path("/repo"), Path("/tmp/out"))
+    cmd = ct._claude_cmd(
+        "p", "m", [Path("/repo"), Path("/repo-main/.git")], Path("/tmp/out")
+    )
     assert cmd[cmd.index("--permission-mode") + 1] == "dontAsk"
     allowed = cmd[cmd.index("--allowed-tools") + 1].split(",")
     assert {"Skill", "Bash"} <= set(allowed), allowed
@@ -536,7 +538,21 @@ def test_claude_driver_can_activate_the_skill_and_run_the_rubric() -> None:
     assert sandbox["failIfUnavailable"] is True
     assert sandbox["allowUnsandboxedCommands"] is False
     assert sandbox["filesystem"]["allowWrite"] == [str(Path("/tmp/out"))]
-    assert sandbox["filesystem"]["denyWrite"] == [str(Path("/repo"))]
+    assert sandbox["filesystem"]["denyWrite"] == [
+        str(Path("/repo")),
+        str(Path("/repo-main/.git")),
+    ]
+    # The repo's git dir is denied too; a linked worktree's lives outside cwd.
+    git_dir = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        capture_output=True,
+        encoding="utf-8",
+        cwd=HERE,
+    ).stdout.strip()
+    deny = ct._deny_write(HERE)
+    assert deny[0] == HERE.resolve()
+    if git_dir:
+        assert any(Path(git_dir).resolve().is_relative_to(d) for d in deny), deny
     # The agent can delete inside --out, so it must not hold anything else.
     with tempfile.TemporaryDirectory() as d:
         (Path(d) / "keep").write_text("x")

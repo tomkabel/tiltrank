@@ -413,8 +413,8 @@ en route and the affected attempts voided, see above):
   that followed was refused (`permission_denials` in the result event).
   The driver now pins `--permission-mode dontAsk` and allows
   `Skill,Bash,Read,Grep,Glob`. Bare Bash runs in Claude Code's sandbox
-  (`--settings`: `failIfUnavailable`, no unsandboxed fallback, repo
-  write-denied). Only the run's `--out` dir and the per-user temp dir
+  (`--settings`: `failIfUnavailable`, no unsandboxed fallback, repo and
+  its git common dir write-denied). Only the run's `--out` dir and the per-user temp dir
   are writable, so `--out` must be a new or empty directory. The harness reports a pass with no rubric runs as
   `INVALID`, not as a rate.
 - **G3 claude (claude-sonnet-5-5): FAIL 15.6%** [7.7%, 28.8%], 45/45

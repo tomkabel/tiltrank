@@ -626,7 +626,9 @@ PI_MODEL_FLAG = os.environ.get("PI_EVAL_MODEL", "deepseek-v4-pro")
 CLAUDE_DEFAULT_MODEL = "claude-sonnet-5-5"
 
 
-def _claude_cmd(prompt: str, model: str, cwd: Path, log_dir: Path) -> list[str]:
+def _claude_cmd(
+    prompt: str, model: str, deny_write: list[Path], log_dir: Path
+) -> list[str]:
     # --permission-mode is pinned because the child otherwise inherits the
     # operator's defaultMode. Under "auto" a headless session cannot run the
     # safety check, so every Bash call (rubric.py included) is denied and
@@ -638,7 +640,8 @@ def _claude_cmd(prompt: str, model: str, cwd: Path, log_dir: Path) -> list[str]:
     #
     # Bare Bash is granted only inside Claude Code's OS sandbox: writes are
     # confined to the per-user temp dir and the run's log dir (rubric.py
-    # appends $TILTRANK_LOG there), the repo is write-denied,
+    # appends $TILTRANK_LOG there), the repo and its git dir are write-denied
+    # (the sandbox otherwise lets a linked worktree write the shared .git),
     # allowUnsandboxedCommands=false removes the per-command escape hatch, and
     # failIfUnavailable=true makes claude exit instead of silently running
     # unsandboxed when bwrap/socat are missing. An agent that obeys the
@@ -649,7 +652,10 @@ def _claude_cmd(prompt: str, model: str, cwd: Path, log_dir: Path) -> list[str]:
         "failIfUnavailable": True,
         "autoAllowBashIfSandboxed": True,
         "allowUnsandboxedCommands": False,
-        "filesystem": {"allowWrite": [str(log_dir)], "denyWrite": [str(cwd)]},
+        "filesystem": {
+            "allowWrite": [str(log_dir)],
+            "denyWrite": [str(p) for p in deny_write],
+        },
     }
     return [
         "claude",
@@ -669,16 +675,37 @@ def _claude_cmd(prompt: str, model: str, cwd: Path, log_dir: Path) -> list[str]:
     ]
 
 
+def _deny_write(cwd: Path) -> list[Path]:
+    """The repo, plus its git common dir: a linked worktree's .git lives
+    outside cwd, and the sandbox leaves it writable unless denied."""
+    deny = [cwd.resolve()]
+    try:
+        git = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True,
+            encoding="utf-8",
+            cwd=cwd,
+        )
+    except FileNotFoundError:  # no git on PATH: nothing more to deny
+        return deny
+    if git.returncode == 0 and git.stdout.strip():
+        common = Path(git.stdout.strip()).resolve()
+        if not common.is_relative_to(deny[0]):
+            deny.append(common)
+    return deny
+
+
 def _claude_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
     # run_one threads the CLI --model in as CLAUDE_EVAL_MODEL; without one
     # the documented default runs.
     model = env.get("CLAUDE_EVAL_MODEL") or CLAUDE_DEFAULT_MODEL
     log_dir = Path(env["TILTRANK_LOG_BASE"])
-    if log_dir.is_relative_to(cwd.resolve()):
-        # denyWrite on the repo would win and rubric.py could not log.
-        raise RuntimeError(f"--out must be outside the repo, got {log_dir}")
+    deny = _deny_write(cwd)
+    if any(log_dir.is_relative_to(d) for d in deny):
+        # denyWrite would win and rubric.py could not log.
+        raise RuntimeError(f"--out must be outside the repo and .git: {log_dir}")
     proc = subprocess.run(
-        _claude_cmd(prompt, model, cwd.resolve(), log_dir),
+        _claude_cmd(prompt, model, deny, log_dir),
         capture_output=True,
         encoding="utf-8",
         timeout=timeout,
