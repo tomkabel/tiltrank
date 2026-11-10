@@ -533,9 +533,19 @@ def test_claude_driver_can_activate_the_skill_and_run_the_rubric() -> None:
     # log dir writable so rubric.py can still record ground truth.
     sandbox = json.loads(cmd[cmd.index("--settings") + 1])["sandbox"]
     assert sandbox["enabled"] is True
+    assert sandbox["failIfUnavailable"] is True
     assert sandbox["allowUnsandboxedCommands"] is False
     assert sandbox["filesystem"]["allowWrite"] == [str(Path("/tmp/out"))]
     assert sandbox["filesystem"]["denyWrite"] == [str(Path("/repo"))]
+    # The agent can delete inside --out, so it must not hold anything else.
+    with tempfile.TemporaryDirectory() as d:
+        (Path(d) / "keep").write_text("x")
+        try:
+            ct.run_live("m", 1, Path(d), 0.1, "clear-winner")
+        except SystemExit as exc:
+            assert "empty" in str(exc), exc
+        else:
+            raise AssertionError("a non-empty --out was accepted")
 
 
 def test_live_verdict_refuses_a_rate_with_no_rubric_runs() -> None:

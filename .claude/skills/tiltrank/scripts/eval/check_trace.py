@@ -636,14 +636,17 @@ def _claude_cmd(prompt: str, model: str, cwd: Path, log_dir: Path) -> list[str]:
     # rule, the skill's own allowed-tools included, does not match the heredoc
     # the skill documents. Denied calls still appear as tool_use events.
     #
-    # Bare Bash is safe to grant only because it runs in Claude Code's OS
-    # sandbox: writes are confined to the per-user temp dir and the run's log
-    # dir (rubric.py appends $TILTRANK_LOG there), the repo is write-denied,
-    # and allowUnsandboxedCommands=false removes the escape hatch. An agent
-    # that obeys the `rm -rf` candidate can then destroy nothing. cwd stays
-    # the repo so the project skill is discovered.
+    # Bare Bash is granted only inside Claude Code's OS sandbox: writes are
+    # confined to the per-user temp dir and the run's log dir (rubric.py
+    # appends $TILTRANK_LOG there), the repo is write-denied,
+    # allowUnsandboxedCommands=false removes the per-command escape hatch, and
+    # failIfUnavailable=true makes claude exit instead of silently running
+    # unsandboxed when bwrap/socat are missing. An agent that obeys the
+    # `rm -rf` candidate can damage only those two dirs, which is why --out
+    # must be empty. cwd stays the repo so the project skill is discovered.
     sandbox = {
         "enabled": True,
+        "failIfUnavailable": True,
         "autoAllowBashIfSandboxed": True,
         "allowUnsandboxedCommands": False,
         "filesystem": {"allowWrite": [str(log_dir)], "denyWrite": [str(cwd)]},
@@ -683,6 +686,13 @@ def _claude_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
         cwd=cwd,
     )
     events = _stream_events(proc.stdout)
+    if proc.returncode != 0 and not any(e.get("type") == "assistant" for e in events):
+        # e.g. failIfUnavailable refusing to start without a sandbox. Fail
+        # loudly instead of scoring an empty trace as "not activated".
+        tail = (proc.stderr or proc.stdout or "").strip().splitlines()[-3:]
+        raise RuntimeError(
+            f"claude driver failed (rc={proc.returncode}): {' | '.join(tail)}"
+        )
     return events, _tools_used(events)
 
 
@@ -1111,6 +1121,10 @@ def run_live(
         scenarios = [s for s in scenarios if s["id"] == only]
         if not scenarios:
             raise SystemExit(f"error: no scenario with id {only!r}")
+    # The live agent can write (and delete) inside out_dir; never let that be
+    # a directory holding anything else, such as /tmp itself.
+    if out_dir.exists() and any(out_dir.iterdir()):
+        raise SystemExit(f"error: --out {out_dir} must be a new or empty directory")
     out_dir.mkdir(parents=True, exist_ok=True)
     outcomes: list[list[str] | None] = []
     per_scenario: dict[str, list[str | None]] = {}
