@@ -131,7 +131,11 @@ export default function (pi: ExtensionAPI) {
 
 			// One deadline for the whole ask, including the Other free-text step:
 			// a second prompt without it could block the agent forever.
-			const deadline = AbortSignal.any([AbortSignal.timeout(timeoutMs), ...(signal ? [signal] : [])]);
+			// A ref'd timer, not AbortSignal.timeout(): that one is unref'd, so a
+			// host (or test runner) with nothing else pending exits before it fires.
+			const timer = new AbortController();
+			const handle = setTimeout(() => timer.abort(), timeoutMs);
+			const deadline = AbortSignal.any([timer.signal, ...(signal ? [signal] : [])]);
 			const prompt = async (fn: () => Promise<string | undefined>) => {
 				try {
 					return await fn();
@@ -142,40 +146,44 @@ export default function (pi: ExtensionAPI) {
 			const expired = () => (deadline.aborted ? reply({ timedOut: true, pick: null }) : undefined);
 			const cancelled = () => reply({ timedOut: false, cancelled: true, pick: null });
 
-			if (q.multiSelect) {
-				// ctx.ui.select is single-choice; multiSelect falls back to a
-				// free-text ask naming the options. Split the answer back into
-				// offered labels and Other text, so an unscored name is never
-				// returned as if it had been on the menu.
-				const raw = await prompt(() =>
-					ctx.ui.input(`${q.question} — pick any of: ${labels.join("; ")} (comma-separated)`, "your picks", {
-						signal: deadline,
-					}),
-				);
+			try {
+				if (q.multiSelect) {
+					// ctx.ui.select is single-choice; multiSelect falls back to a
+					// free-text ask naming the options. Split the answer back into
+					// offered labels and Other text, so an unscored name is never
+					// returned as if it had been on the menu.
+					const raw = await prompt(() =>
+						ctx.ui.input(`${q.question} — pick any of: ${labels.join("; ")} (comma-separated)`, "your picks", {
+							signal: deadline,
+						}),
+					);
+					const timedOut = expired();
+					if (timedOut) return timedOut;
+					const parts = (raw ?? "").split(",").map(bareLabel).filter(Boolean);
+					if (parts.length === 0) return cancelled();
+					const picks = [...new Set(parts.filter((p) => offered.includes(p)))];
+					const other = [...new Set(parts.filter((p) => !offered.includes(p)))];
+					return reply({ timedOut: false, picks, other });
+				}
+
+				const choice = await prompt(() => ctx.ui.select(q.question, [...labels, OTHER], { signal: deadline }));
 				const timedOut = expired();
 				if (timedOut) return timedOut;
-				const parts = (raw ?? "").split(",").map(bareLabel).filter(Boolean);
-				if (parts.length === 0) return cancelled();
-				const picks = [...new Set(parts.filter((p) => offered.includes(p)))];
-				const other = [...new Set(parts.filter((p) => !offered.includes(p)))];
-				return reply({ timedOut: false, picks, other });
+				if (!choice) return cancelled(); // Esc: same honest shape as a timeout
+
+				if (choice === OTHER) {
+					const own = await prompt(() => ctx.ui.input("Your own choice:", "free text", { signal: deadline }));
+					const late = expired();
+					if (late) return late;
+					const ownLabel = sanitiseLabel(own ?? "");
+					if (ownLabel === "") return cancelled();
+					return reply({ timedOut: false, pick: ownLabel, source: "other" });
+				}
+
+				return reply({ timedOut: false, pick: bareLabel(choice) });
+			} finally {
+				clearTimeout(handle);
 			}
-
-			const choice = await prompt(() => ctx.ui.select(q.question, [...labels, OTHER], { signal: deadline }));
-			const timedOut = expired();
-			if (timedOut) return timedOut;
-			if (!choice) return cancelled(); // Esc: same honest shape as a timeout
-
-			if (choice === OTHER) {
-				const own = await prompt(() => ctx.ui.input("Your own choice:", "free text", { signal: deadline }));
-				const late = expired();
-				if (late) return late;
-				const ownLabel = sanitiseLabel(own ?? "");
-				if (ownLabel === "") return cancelled();
-				return reply({ timedOut: false, pick: ownLabel, source: "other" });
-			}
-
-			return reply({ timedOut: false, pick: bareLabel(choice) });
 		},
 	});
 
