@@ -1517,5 +1517,83 @@
         }
       ]
     }
+  },
+  {
+    "name": "clean-agent-generated-options-all-scored",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "agent-generated-options",
+      "candidates": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Postgres",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Postgres",
+            "SQLite"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Postgres (Recommended)",
+              "description": "Strong lead — already run in prod, but heavier to operate"
+            },
+            {
+              "label": "SQLite",
+              "description": "Contested — zero ops, but one writer at a time"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-agent-generated-option-never-scored",
+    "expect_violations": [
+      "NO_INVENTED_OPTIONS"
+    ],
+    "trace": {
+      "scenario": "agent-generated-options",
+      "candidates": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Postgres",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Postgres",
+            "SQLite"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Postgres (Recommended)",
+              "description": "Strong lead — already run in prod, but heavier to operate"
+            },
+            {
+              "label": "DynamoDB",
+              "description": "Never scored — slipped in after the rubric ran"
+            }
+          ]
+        }
+      ]
+    }
   }
 ]

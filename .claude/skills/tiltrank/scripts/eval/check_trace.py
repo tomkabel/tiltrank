@@ -176,7 +176,7 @@ def check(trace: dict) -> list[str]:
         allowed = candidates | {sanitise_label(c) for c in candidates}
         if prior_rubric:
             allowed |= set(prior_rubric.get("options_scored") or [])
-        if candidates and not offered <= allowed:
+        if not offered <= allowed:
             bad.append("NO_INVENTED_OPTIONS")
 
         # An option gated out on a hard constraint must not be presented.
