@@ -417,21 +417,32 @@ en route and the affected attempts voided, see above):
   its git common dir write-denied). Only the run's `--out` dir and the per-user temp dir
   are writable, so `--out` must be a new or empty directory. The harness reports a pass with no rubric runs as
   `INVALID`, not as a rate.
-- **G3 claude (claude-sonnet-5-5): FAIL 15.6%** [7.7%, 28.8%], 45/45
-  rubric invocations, 91.1% self-agreement. 2026-11-10, Claude Code
-  2.1.319. Violations: `HYBRID_RESCORED` (6; one each on `clear-winner`,
-  `top-two-inside-noise`, `nine-candidates-overflow` and
-  `escalation-explicit-command`, two on `escalation-declined`) and
-  `RECOMMENDED_MATCHES_TOP` (1, `hard-constraint-excludes-favourite`).
-  All six `HYBRID_RESCORED` runs have the same shape: the self-reported
-  `action.label` is the menu label verbatim, e.g. `Redis (Recommended)`,
-  and the rule strips the marker from offered labels but not from the
-  acted label. That is a checker inconsistency, not a hybrid. With the
-  marker stripped, the pass is 1/45 = 2.2% [0.4%, 11.6%], still above
-  the gate. The `RECOMMENDED_MATCHES_TOP` run is real: after escalating,
-  the agent marked a different option recommended and only re-ran the
-  rubric after the ask. The skill ran from the user-level install
-  (issue #22), whose SKILL.md matched this tree byte for byte.
+- **G3 claude (claude-sonnet-5-5): FAIL 17.8%** [9.3%, 31.3%], 45/45
+  rubric invocations, 93.3% self-agreement. 2026-11-10, Claude Code
+  2.1.319, sandboxed and isolated driver (this is the number of record).
+  Violations: `HYBRID_RESCORED` (6) and `ESCALATION_WHEN_CONTESTED` (3,
+  all `hard-constraint-excludes-favourite`). The six `HYBRID_RESCORED`
+  runs are the checker bug in issue #21: the acted label is the menu
+  label verbatim, `(Recommended)` included. Rescored with that fix the
+  same traces are **3/45 = 6.7% [2.3%, 17.9%]**, still a gate FAIL. The
+  remaining three are real: with Sentry SaaS, Datadog and Rollbar
+  excluded, the rubric said `unverified-evidence` on the one survivor,
+  and the agent tried WebFetch (denied in the driver) and then asked
+  without escalating. SKILL.md has no rule for when the falsifying tool
+  is unavailable; that is the next protocol fix.
+- **How the driver got here** (same model, same day, three passes):
+  1. Unsandboxed, operator setup inherited: 15.6% [7.7%, 28.8%], 45/45.
+     The Skill tool loaded the user-level install (issue #22), and the
+     child saw the operator's CLAUDE.md and MCP servers.
+  2. Sandboxed, still not isolated: 29.5% [18.2%, 44.2%], 44/45. Seven
+     `ESCALATION_WHEN_CONTESTED`: escalation reached for the operator's
+     docs MCP, which `dontAsk` denied, and the agent asked without
+     escalating. An operator artefact, not a skill measurement.
+  3. Sandboxed and isolated (`--setting-sources project,local
+     --strict-mcp-config`): the number of record above. Verified that the
+     Skill tool now resolves this tree's `.claude/skills/tiltrank`, and
+     that a deliberate `rm -rf /tmp/x` from the child fails with
+     "Read-only file system".
 - **G4 hermes (glm-5.2:speed): FAIL 17.8%** [9.3%, 31.3%], 45/45 rubric
   invocations, 84.4% self-agreement. Full `--repeat 3` pass (45 runs,
   2026-09-21). Violation mix: `RECOMMENDED_MATCHES_TOP` (5) — the model's
