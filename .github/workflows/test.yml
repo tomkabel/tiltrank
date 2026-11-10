@@ -34,6 +34,9 @@ jobs:
           pip install ruff==0.17.3
           ruff check --select E4,E7,E9,F .claude/skills/tiltrank/scripts/ .github/scripts/
 
+      - name: ruff format check (same pinned ruff, same paths)
+        run: ruff format --check .claude/skills/tiltrank/scripts/ .github/scripts/
+
       - name: unit tests (validation, gating, ranking)
         run: python3 .claude/skills/tiltrank/scripts/test_rubric.py
 

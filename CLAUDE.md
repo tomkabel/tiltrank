@@ -19,6 +19,7 @@ python3 $S/test_install_contract.py        # README install commands
 python3 .github/scripts/stdlib_only.py     # no import outside the stdlib, dynamic imports included
 python3 .github/scripts/test_stdlib_only.py   # the import checker itself catches every shape
 ruff check --select E4,E7,E9,F $S .github/scripts   # lint, same rule set as CI
+ruff format --check $S .github/scripts             # formatting, CI pins ruff==0.17.3 (`uvx ruff@0.17.3 ...` if not installed)
 claude plugin validate .claude/skills      # SKILL.md frontmatter check (CI)
 cd extensions && npm ci && npx tsc --noEmit         # pi extension typecheck (CI)
 node --experimental-strip-types --test --test-force-exit extensions/tiltrank.test.ts  # extension + sanitiser parity
