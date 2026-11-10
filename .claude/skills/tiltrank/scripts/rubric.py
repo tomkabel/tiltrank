@@ -699,9 +699,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = ap.parse_args(argv)
 
+    # JSON on the wire is UTF-8 (RFC 8259). On Windows, piped stdio defaults to
+    # the ANSI code page: non-ASCII labels arrive as mojibake and anything
+    # outside cp1252 crashes the table on the way out.
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+
     try:
         payload = json.load(sys.stdin)
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         print(f"error: stdin is not valid JSON: {exc}", file=sys.stderr)
         return 2
 

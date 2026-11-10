@@ -312,11 +312,22 @@ def cli(
 ) -> subprocess.CompletedProcess:
     return subprocess.run(
         [sys.executable, str(HERE / "rubric.py"), *flags],
-        input=json.dumps(payload),
+        input=json.dumps(payload, ensure_ascii=False),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=(os.environ | env) if env else None,
     )
+
+
+def test_cli_speaks_utf8_whatever_the_console_code_page() -> None:
+    """Windows pipes default to the ANSI code page; PYTHONIOENCODING simulates it."""
+    label = "Đặng ≤ 日本"  # 0x90 is undefined in cp1252; ≤ and 日本 are not in it
+    payload = {"choices": [choice(label, fit_to_constraints=HIGH), choice("B")]}
+    legacy = {"PYTHONIOENCODING": "cp1252"}
+    table = cli(payload, env=legacy)
+    assert table.returncode == 0 and label in table.stdout, table.stderr
+    blob = json.loads(cli(payload, "--json", env=legacy).stdout)
+    assert blob["recommended"] == label
 
 
 def test_cli_roundtrip_and_no_percentage_shaped_output() -> None:
@@ -348,7 +359,7 @@ def test_cli_rejects_malformed_json() -> None:
         [sys.executable, str(HERE / "rubric.py")],
         input="not json",
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     assert proc.returncode == 2 and "not valid JSON" in proc.stderr
 
@@ -382,7 +393,7 @@ def test_log_records_the_decision_and_divergence() -> None:
             == 0
         )
 
-        rows = [json.loads(x) for x in log.read_text().splitlines()]
+        rows = [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines()]
         assert [r["kind"] for r in rows] == ["ranking", "decision", "decision"]
         assert rows[0]["pick"] is None and rows[0]["diverged"] is None
         assert rows[1]["pick"] == "Beta" and rows[1]["diverged"] is True
@@ -412,7 +423,7 @@ def test_timed_out_logging() -> None:
             == 0
         )
 
-        rows = [json.loads(x) for x in log.read_text().splitlines()]
+        rows = [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines()]
         assert rows[0]["kind"] == "ranking"
         assert rows[0]["pick"] is None and rows[0]["timed_out"] is False
         # the timed-out row closes the decision without inventing an answer
@@ -710,7 +721,7 @@ def test_timed_out_and_pick_are_validated() -> None:
                 bad,
                 proc.stderr,
             )
-        assert not log.exists() or not log.read_text(), (
+        assert not log.exists() or not log.read_text(encoding="utf-8"), (
             "a rejected payload must not be logged"
         )
         # The ask's own marker is not part of the label: copied verbatim, it must not diverge.
@@ -723,7 +734,7 @@ def test_timed_out_and_pick_are_validated() -> None:
         assert (
             cli(payload | {"pick": "Beta"}, "--log", str(log), env=env).returncode == 0
         )
-        rows = [json.loads(x) for x in log.read_text().splitlines()]
+        rows = [json.loads(x) for x in log.read_text(encoding="utf-8").splitlines()]
         assert [(r["pick"], r["diverged"]) for r in rows] == [
             ("Alpha", False),
             ("Beta", True),

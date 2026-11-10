@@ -17,7 +17,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-SKILL = (HERE.parent / "SKILL.md").read_text()
+SKILL = (HERE.parent / "SKILL.md").read_text(encoding="utf-8")
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE / "eval"))
 
@@ -198,7 +198,7 @@ def _normalise(text: str) -> str:
 def test_every_emitted_rule_is_registered() -> None:
     import check_trace  # pyright: ignore[reportMissingImports]
 
-    emitted = set(EMITTED.findall(CHECK_TRACE.read_text()))
+    emitted = set(EMITTED.findall(CHECK_TRACE.read_text(encoding="utf-8")))
     assert emitted == set(check_trace.RULES), (
         f"emitted but unregistered: {emitted - set(check_trace.RULES)}; "
         f"registered but never emitted: {set(check_trace.RULES) - emitted}"
@@ -223,8 +223,8 @@ def test_every_rule_goes_red_when_disabled() -> None:
     module, and run the fixtures: at least one must fail, or the rule is unguarded."""
     import check_trace  # pyright: ignore[reportMissingImports]
 
-    source = CHECK_TRACE.read_text()
-    cases = json.loads((HERE / "eval" / "fixtures.json").read_text())
+    source = CHECK_TRACE.read_text(encoding="utf-8")
+    cases = json.loads((HERE / "eval" / "fixtures.json").read_text(encoding="utf-8"))
     unguarded = []
     for code in check_trace.RULES:
         mutant = source.replace(f'bad.append("{code}")', "pass")

@@ -13,9 +13,9 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-README = (ROOT / "README.md").read_text()
-SKILL = (ROOT / ".claude/skills/tiltrank/SKILL.md").read_text()
-PORTING = (ROOT / "docs/porting-hermes-pi.md").read_text()
+README = (ROOT / "README.md").read_text(encoding="utf-8")
+SKILL = (ROOT / ".claude/skills/tiltrank/SKILL.md").read_text(encoding="utf-8")
+PORTING = (ROOT / "docs/porting-hermes-pi.md").read_text(encoding="utf-8")
 
 
 def quickstart() -> str:

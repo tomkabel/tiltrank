@@ -17,7 +17,7 @@ def offenders(root: Path) -> list[str]:
     bad = []
     for f in sorted(root.rglob("*.py")):
         local = LOCAL | {p.stem for p in f.parent.glob("*.py")}
-        tree = ast.parse(f.read_text(), str(f))
+        tree = ast.parse(f.read_bytes(), str(f))
         # `from importlib import import_module as load` makes `load(...)` dynamic too.
         # ponytail: plain assignment (`load = importlib.import_module`) is not tracked.
         loaders = {"__import__"} | {
