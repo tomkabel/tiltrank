@@ -23,9 +23,11 @@ def offenders(root: Path) -> list[str]:
         loaders = {"__import__"} | {
             a.asname or a.name
             for node in ast.walk(tree)
-            if isinstance(node, ast.ImportFrom) and node.module in ("importlib", "builtins")
+            if isinstance(node, ast.ImportFrom)
+            and node.module in ("importlib", "builtins")
             for a in node.names
-            if a.name in ("import_module", "__import__")}
+            if a.name in ("import_module", "__import__")
+        }
         for node in ast.walk(tree):
             names: list[str] = []
             if isinstance(node, ast.Import):
@@ -35,13 +37,16 @@ def offenders(root: Path) -> list[str]:
             elif isinstance(node, ast.Call):
                 fn = node.func
                 dynamic = (isinstance(fn, ast.Name) and fn.id in loaders) or (
-                    isinstance(fn, ast.Attribute) and fn.attr == "import_module")
+                    isinstance(fn, ast.Attribute) and fn.attr == "import_module"
+                )
                 if dynamic:
                     arg = node.args[0] if node.args else None
                     if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
                         names = [arg.value]
                     else:
-                        bad.append(f"{f}:{node.lineno}: dynamic import of a non-literal name")
+                        bad.append(
+                            f"{f}:{node.lineno}: dynamic import of a non-literal name"
+                        )
             for n in names:
                 root_name = n.split(".")[0]
                 if root_name not in sys.stdlib_module_names and root_name not in local:

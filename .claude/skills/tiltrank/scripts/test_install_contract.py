@@ -20,7 +20,7 @@ PORTING = (ROOT / "docs/porting-hermes-pi.md").read_text()
 
 def quickstart() -> str:
     start = README.index("## Quick start")
-    rest = README[start + len("## Quick start"):]
+    rest = README[start + len("## Quick start") :]
     end = rest.find("\n## ")
     return rest[:end]
 
@@ -87,7 +87,9 @@ def test_panel_is_not_sold_as_a_claude_command() -> None:
 
 
 def test_porting_doc_does_not_reintroduce_dead_pi_settings() -> None:
-    assert "skills[]` did **not** work" in PORTING or "skills[]` did not work" in PORTING
+    assert (
+        "skills[]` did **not** work" in PORTING or "skills[]` did not work" in PORTING
+    )
     tail = PORTING.split("did not work", 1)[-1]
     assert "pi supports the equivalent: `settings.json` `skills[]`" not in tail
 
@@ -104,10 +106,12 @@ def test_readme_links_resolve() -> None:
 
 def test_porting_doc_quotes_the_current_frontmatter() -> None:
     """The porting doc's frontmatter snippet must match SKILL.md, not an old release."""
+
     def field(text: str, key: str) -> str:
         m = re.search(rf"^\s*{key}: (.+)$", text, re.M)
         assert m, key
         return m.group(1).strip()
+
     for key in ("version", "description", "allowed-tools"):
         assert field(PORTING, key) == field(SKILL, key), key
 
