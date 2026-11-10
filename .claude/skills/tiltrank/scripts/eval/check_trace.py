@@ -201,7 +201,11 @@ def check(trace: dict) -> list[str]:
         top = prior_rubric.get("recommended") if prior_rubric else None
         if barred and top not in allowed:
             top = next(
-                (o for o in prior_rubric.get("options_scored") or [] if o in allowed and o not in excluded),
+                (
+                    o
+                    for o in prior_rubric.get("options_scored") or []
+                    if o in allowed and o not in excluded
+                ),
                 None,
             )
 
