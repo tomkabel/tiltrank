@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- The feasibility gate accepted any value except literal `false` as feasible. `feasible` must now be a JSON boolean; `"false"`, `0`, `null` and `"no"` are rejected.
+- A lone feasible option never raised `weak-field`. The weak-field check now runs for any field size and uses the conservative bound (`lo`), so an option propped up by unknown criteria escalates.
+- Stability depended on input order (0.51 to 0.56 across the 24 orders of one four-option set). Options are perturbed in label order, with ties broken the way the ranking breaks them.
+- Malformed payloads (`10**400`, non-object choices or weights, non-string labels) produced tracebacks. Every one is now a one-line `error:` with exit 1, checked by a mutation fuzz over a logged payload.
+- `timed_out: "false"` logged as true, and a pick matching no label was accepted. `timed_out` and `escalated` must be booleans, and `pick` must name an option. The ask's `(Recommended)` marker is stripped first, so a verbatim pick no longer logs a false divergence.
+- `label: null` became an option called `None`.
+- The injection flag missed zero-width splits, fullwidth text, `wget`, `base64 -d`, `sudo`, `eval`, `rm -fr` and "ignore the previous instructions". SKILL.md now calls it a best-effort keyword flag, not detection.
+
 ### Changed
 - The README now has a removal command with the same global scope as the install (`npx skills remove tiltrank -g -a claude-code hermes-agent pi -y`), and tells the reader to pin `skills@1.7.4`. `SKILL.md` says not to run the `<skill-dir>` example as written.
 

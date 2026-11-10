@@ -95,6 +95,8 @@ _CONTROL_RE = re.compile(
 
 def sanitise_label(raw: object) -> str:
     """Normalise a candidate label for safe rendering. Returns '' if it is empty."""
+    if raw is None:
+        return ""
     text = unicodedata.normalize("NFC", str(raw))
     text = _CONTROL_RE.sub(" ", text)
     text = " ".join(text.split())
@@ -103,15 +105,27 @@ def sanitise_label(raw: object) -> str:
     return text
 
 
-# Shared with check_trace.py. A match is a finding, not a veto: the option is
-# still scored. Nothing in this process can stop a host model from obeying the
-# text; the flag exists so the attempt is in the verdict and the log, not only
-# in whatever the model chooses to narrate.
+# Shared with check_trace.py. A best-effort keyword flag, not detection: a
+# paraphrase it has no keyword for passes straight through. A match is a
+# finding, not a veto: the option is still scored. Nothing in this process can
+# stop a host model from obeying the text; the flag exists so the attempt is in
+# the verdict and the log, not only in whatever the model chooses to narrate.
 INJECTION_RE = re.compile(
-    r"ignore\s+(all\s+)?(previous|prior|above)|disregard\s+the|"
-    r"rm\s+-rf|curl\s+|\bexfiltrat|system\s+prompt|new\s+instructions",
+    r"\bignore\s+(all\s+)?(of\s+)?(the\s+)?(previous|prior|above|earlier|your)\b|"
+    r"\bdisregard\s+(the|all|previous|prior|your)\b|"
+    r"\brm\s+(-\w+\s+)*-\w*[rf]\w*|\b(curl|wget)\s+|\bbase64\s+(-d|--decode)\b|"
+    r"\bsudo\s+|\beval\s*[\"'$(`]|\bexfiltrat|system\s+prompt|new\s+instructions",
     re.IGNORECASE,
 )
+
+
+def injection_text(raw: object) -> str:
+    """Text as INJECTION_RE should see it: NFKC folds fullwidth and compatibility
+    forms to ASCII, and invisible format characters are deleted rather than
+    spaced, so `ig<ZWSP>nore` reads as `ignore` instead of two harmless words."""
+    text = unicodedata.normalize("NFKC", "" if raw is None else str(raw))
+    text = "".join(c for c in text if unicodedata.category(c) != "Cf")
+    return " ".join(_CONTROL_RE.sub(" ", text).split())
 
 
 def injection_findings(choices: Sequence[Mapping[str, object]]) -> list[dict[str, str]]:
@@ -120,8 +134,7 @@ def injection_findings(choices: Sequence[Mapping[str, object]]) -> list[dict[str
     seen: set[str] = set()
     for raw in choices:
         shown = sanitise_label(raw.get("label", ""))
-        blob = unicodedata.normalize("NFC", f"{raw.get('label', '')}\n{raw.get('note', '')}")
-        blob = _CONTROL_RE.sub(" ", blob)
+        blob = injection_text(raw.get("label")) + "\n" + injection_text(raw.get("note"))
         if shown and INJECTION_RE.search(blob) and shown not in seen:
             seen.add(shown)
             found.append({"kind": "injection", "label": shown})
@@ -217,13 +230,23 @@ class Verdict:
         return bool(self.reasons)
 
 
-def _validate_weights(weights: Mapping[str, float]) -> dict[str, float]:
+def _finite(value: int | float) -> float:
+    """float() of a JSON number, or nan when it overflows (10**400 is valid JSON)."""
+    try:
+        return float(value)
+    except OverflowError:
+        return math.nan
+
+
+def _validate_weights(weights: object) -> dict[str, float]:
+    if not isinstance(weights, Mapping):
+        raise ValueError(f"weights must be an object of criterion -> number, got {weights!r}")
     if not weights:
         raise ValueError("weights must not be empty")
     for name, w in weights.items():
         if isinstance(w, bool) or not isinstance(w, (int, float)):
             raise ValueError(f"weight {name!r}: expected a number, got {w!r}")
-        if not math.isfinite(w) or w < 0:
+        if not math.isfinite(_finite(w)) or w < 0:
             raise ValueError(f"weight {name!r}: expected a finite non-negative number, got {w!r}")
     if "evidence_strength" in weights:
         raise ValueError(
@@ -243,7 +266,7 @@ def _validate_level(criterion: str, value: object) -> float | None:
     # bool is an int subclass, so this check must come first.
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{criterion!r}: expected one of {list(LEVELS)} or null, got {value!r}")
-    v = float(value)
+    v = _finite(value)
     if not math.isfinite(v):
         raise ValueError(f"{criterion!r}: expected a finite number, got {value!r}")
     if 0.0 < v < 1.0:
@@ -318,7 +341,12 @@ def _stability(
     if len(cleaned) < 2:
         return 1.0
     rng = random.Random(SEED)
-    names = list(w)
+    # Canonical order. The RNG stream is consumed option by option, so iterating
+    # in input order made the same option set give different stability figures
+    # (0.51-0.56 across the 24 orders of one four-option set) — enough to flip
+    # `separated` near the threshold.
+    cleaned = sorted(cleaned, key=lambda item: item[0])
+    names = sorted(w)
     alphas = [max(w[k] * WEIGHT_CONCENTRATION, 1e-3) for k in names]
     survived = 0
 
@@ -327,17 +355,20 @@ def _stability(
         total = sum(draws) or 1.0
         pw = {k: d / total for k, d in zip(names, draws)}
 
-        best_label, best_lo = None, -1.0
+        best_label, best_key = None, None
         for label, clean in cleaned:
             jittered: dict[str, float | None] = {}
-            for k, v in clean.items():
+            for k in names:
+                v = clean[k]
                 if v is not None and rng.random() < BAND_FLIP_PROB:
                     i = LEVELS.index(int(v)) + (1 if rng.random() < 0.5 else -1)
                     v = float(LEVELS[min(max(i, 0), len(LEVELS) - 1)])
                 jittered[k] = v
-            lo = _bounds(jittered, pw)[0]
-            if lo > best_lo:
-                best_label, best_lo = label, lo
+            lo, point, _ = _bounds(jittered, pw)
+            # Same total order as rank_choices: lo, then point, then label.
+            key = (lo, point, label)
+            if best_key is None or key > best_key:
+                best_label, best_key = label, key
         if best_label == top_label:
             survived += 1
 
@@ -355,21 +386,35 @@ def rank_choices(
     precedent, so it never enters the ranking — it is reported separately.
     """
     w = _validate_weights(weights if weights is not None else DEFAULT_WEIGHTS)
+    if not isinstance(choices, list):
+        raise ValueError(f"'choices' must be a list of option objects, got {choices!r}")
     ranked: list[Ranked] = []
     excluded: list[Ranked] = []
     cleaned: list[tuple[str, dict[str, float | None]]] = []
     seen: set[str] = set()
 
     for raw in choices:
-        label = sanitise_label(raw.get("label", ""))
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"every choice must be an object with a 'label', got {raw!r}")
+        if not isinstance(raw.get("label"), str):
+            raise ValueError(f"every choice needs a string label, got {raw.get('label')!r}")
+        label = sanitise_label(raw["label"])
         if not label:
             raise ValueError(f"every choice needs a non-empty label: {raw!r}")
         if label in seen:
             raise ValueError(f"duplicate choice label: {label!r}")
         seen.add(label)
 
-        note = sanitise_label(raw.get("note", ""))
-        if raw.get("feasible", True) is False:
+        if not isinstance(raw.get("note", ""), (str, type(None))):
+            raise ValueError(f"{label!r}: 'note' must be a string, got {raw['note']!r}")
+        note = sanitise_label(raw.get("note"))
+        # Only a real boolean gates. "false", 0, null and "no" used to mean
+        # feasible, because the old check was `is False` — the gate let through
+        # every way of saying no except one.
+        feasible = raw.get("feasible", True)
+        if not isinstance(feasible, bool):
+            raise ValueError(f"{label!r}: 'feasible' must be true or false, got {feasible!r}")
+        if not feasible:
             excluded.append(Ranked(label=label, score=None, feasible=False, note=note))
             continue
 
@@ -416,13 +461,17 @@ def rank_choices(
     verdict.stability = _stability(cleaned, w, top.label)
     verdict.separated = verdict.stability >= STABILITY_THRESHOLD
 
+    # Judged on `lo`, like the ranking: an option whose strength is mostly
+    # unknown criteria is not a strong option. And judged whatever the field
+    # size — being the only feasible option does not make an option good.
+    weak = top.score.lo < WEAK_FIELD_TOTAL
     if len(ranked) == 1:
         verdict.band = "Only feasible option"
     else:
         second = ranked[1].score
         assert second is not None
         verdict.gap = round(top.score.lo - second.lo, 1)
-        if top.score.point < WEAK_FIELD_TOTAL:
+        if weak:
             verdict.band = "Weak field"
         elif verdict.separated:
             verdict.band = "Separated"
@@ -431,7 +480,7 @@ def rank_choices(
 
     if not verdict.separated:
         verdict.reasons.append("not-separable")
-    if verdict.band == "Weak field":
+    if weak:
         verdict.reasons.append("weak-field")
     if top.evidence is None or top.evidence <= LEVELS[0]:
         verdict.reasons.append("unverified-evidence")
@@ -517,6 +566,48 @@ def _verdict_to_dict(v: Verdict) -> dict:
     }
 
 
+MARKER = "(Recommended)"
+
+
+def decision_fields(payload: Mapping[str, object], verdict: Verdict) -> tuple[str | None, bool]:
+    """Validated (pick, timed_out). Raises ValueError rather than log a wrong record.
+
+    `timed_out` is the honest record for a headless/autonomous run: the ask
+    rendered, no answer came back within the harness's window, and the record
+    must not read identically to a skipped or crashed call. It must be a real
+    boolean — `bool("false")` is True, which logged an answered decision as
+    expired.
+
+    `pick` must name an option in this payload. A pick that matches no label is
+    a paraphrase or an unscored hybrid, and would log a false divergence. The
+    ask's own `(Recommended)` marker is stripped first: a label copied verbatim
+    from the menu is the label, not an override.
+    """
+    timed_out = payload.get("timed_out", False)
+    if not isinstance(timed_out, bool):
+        raise ValueError(f"'timed_out' must be true or false, got {timed_out!r}")
+    escalated = payload.get("escalated")
+    if not isinstance(escalated, (bool, type(None))):
+        raise ValueError(f"'escalated' must be true, false or null, got {escalated!r}")
+    raw = payload.get("pick")
+    if raw is None:
+        return None, timed_out
+    if not isinstance(raw, str):
+        raise ValueError(f"'pick' must be the chosen option's label, got {raw!r}")
+    if timed_out:
+        raise ValueError("'pick' and 'timed_out': true contradict each other: an expired ask has no pick")
+    pick = sanitise_label(raw)
+    if pick.endswith(MARKER):
+        pick = pick[: -len(MARKER)].rstrip()
+    labels = [r.label for r in (*verdict.ranked, *verdict.excluded)]
+    if pick not in labels:
+        raise ValueError(
+            f"'pick' {pick!r} matches no option label {labels}. Copy the label as the ask "
+            "rendered it; for a hybrid or an Other answer, add it as a labelled option and re-run"
+        )
+    return pick, timed_out
+
+
 def append_log(path: Path, payload: Mapping[str, object], verdict: Verdict) -> None:
     """One JSONL line per decision. A convenience record, not a tamper-evident ledger.
 
@@ -529,15 +620,8 @@ def append_log(path: Path, payload: Mapping[str, object], verdict: Verdict) -> N
     pair is the only way anyone later learns whether the recommendations were any
     good, or whether users routinely overrode them.
     """
-    pick = payload.get("pick")
-    pick = sanitise_label(pick) if pick is not None else None
+    pick, timed_out = decision_fields(payload, verdict)
     recommended = verdict.recommended.label if verdict.recommended else None
-    # `timed_out` is the honest record for a headless/autonomous run: the ask
-    # rendered, no answer came back within the harness's window, and the record
-    # must not read identically to a skipped or crashed call. Without it a
-    # `pick: null` decision line is ambiguous — null pick + timed_out=true says
-    # "asked, timed out, no answer exists"; null pick without it is unexplained.
-    timed_out = bool(payload.get("timed_out"))
     record = {
         "ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "kind": "decision" if (pick is not None or timed_out) else "ranking",
@@ -590,7 +674,10 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     try:
+        if not isinstance(payload, dict) or "choices" not in payload:
+            raise ValueError('stdin must be a JSON object with a "choices" list')
         verdict = rank_choices(payload["choices"], payload.get("weights"))
+        decision_fields(payload, verdict)  # a bad pick fails even without --log
     except (KeyError, TypeError, ValueError) as exc:
         # Named, actionable errors: the agent reads this and corrects its own input.
         print(f"error: {exc}", file=sys.stderr)
