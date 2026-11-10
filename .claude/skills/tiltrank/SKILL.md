@@ -270,7 +270,8 @@ keep honest.
 | pi | `tiltrank` extension tool (same JSON shape as `AskUserQuestion`) | put the recommended option **first** and append `(Recommended)` to its `label` | "Other" choice, free-text input |
 
 Shared invariants regardless of harness: at most 4 options, the rubric's top
-option at index 0 and nowhere else marked, an Other path that can name any
+option you may offer at index 0 and nowhere else marked (below: an addition
+kept off the menu passes the mark down), an Other path that can name any
 candidate, no score numbers anywhere in the rendered text.
 
 **Labels come verbatim from the payload you scored.** Copy each option's

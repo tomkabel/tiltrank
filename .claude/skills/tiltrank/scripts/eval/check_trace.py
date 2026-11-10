@@ -94,7 +94,7 @@ RULES: dict[str, str] = {
     "RUBRIC_BEFORE_ASK": "Run the script in its own turn, before you compose the ask.",
     "MAX_OPTIONS": "One question, up to 4 options.",
     "NO_PERCENT": "No numbers at all.",
-    "RECOMMENDED_SINGLE": "the rubric's top option at index 0 and nowhere else marked",
+    "RECOMMENDED_SINGLE": "the rubric's top option you may offer at index 0 and nowhere else marked",
     "RECOMMENDED_MATCHES_TOP": "put the recommended option first",
     "NO_INVENTED_OPTIONS": "Labels come verbatim from the payload you scored.",
     "INFEASIBLE_NOT_OFFERED": "An option the script excluded is never offered",
