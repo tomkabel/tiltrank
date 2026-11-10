@@ -19,6 +19,7 @@ python3 $S/test_install_contract.py        # README install commands
 python3 .github/scripts/stdlib_only.py     # no import outside the stdlib, dynamic imports included
 python3 .github/scripts/test_stdlib_only.py   # the import checker itself catches every shape
 ruff check --select E4,E7,E9,F $S .github/scripts   # lint, same rule set as CI
+ruff format --check $S .github/scripts             # formatting, CI pins ruff==0.17.3 (`uvx ruff@0.17.3 ...` if not installed)
 claude plugin validate .claude/skills      # SKILL.md frontmatter check (CI)
 cd extensions && npm ci && npx tsc --noEmit         # pi extension typecheck (CI)
 node --experimental-strip-types --test --test-force-exit extensions/tiltrank.test.ts  # extension + sanitiser parity
@@ -33,7 +34,7 @@ python3 $S/rubric.py --json < input.json
 python3 $S/eval/check_trace.py --live --driver claude|hermes|pi [--only <scenario-id>] [--repeat N] [--model M]
 ```
 
-CI (`.github/workflows/test.yml`) runs on Python 3.10 and 3.13 and fails on any import outside the stdlib (`.github/scripts/stdlib_only.py`, which also catches `__import__`/`importlib`).
+CI (`.github/workflows/test.yml`) runs on Python 3.10 and 3.13, on Linux and Windows (both required; macOS is experimental), and fails on any import outside the stdlib (`.github/scripts/stdlib_only.py`, which also catches `__import__`/`importlib`).
 
 ## Architecture
 

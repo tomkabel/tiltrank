@@ -23,7 +23,9 @@ with tempfile.TemporaryDirectory() as d:
     root = Path(d)
     for name, src in BAD.items():
         (root / name).write_text(src)
-    (root / "ok.py").write_text("import json\nfrom importlib import import_module as load\nload('json')\n")
+    (root / "ok.py").write_text(
+        "import json\nfrom importlib import import_module as load\nload('json')\n"
+    )
     found = offenders(root)
     for name in BAD:
         assert any(name in line for line in found), f"{name} not reported: {found}"

@@ -83,12 +83,12 @@ MAX_LABEL_LEN = 120
 # character in source is exactly what this is defending against.
 _CONTROL_RE = re.compile(
     "["
-    "\x00-\x1f\x7f-\x9f"       # C0 and C1 controls, incl. newline and tab
-    "\u00a0\u00ad"              # no-break space, soft hyphen
-    "\u200b-\u200f"             # zero-width and directional marks
-    "\u2028\u2029"              # line and paragraph separators
+    "\x00-\x1f\x7f-\x9f"  # C0 and C1 controls, incl. newline and tab
+    "\u00a0\u00ad"  # no-break space, soft hyphen
+    "\u200b-\u200f"  # zero-width and directional marks
+    "\u2028\u2029"  # line and paragraph separators
     "\u202a-\u202e\u2066-\u2069"  # bidi overrides and isolates
-    "\ufeff"                    # zero-width no-break space / BOM
+    "\ufeff"  # zero-width no-break space / BOM
     "]"
 )
 
@@ -240,14 +240,18 @@ def _finite(value: int | float) -> float:
 
 def _validate_weights(weights: object) -> dict[str, float]:
     if not isinstance(weights, Mapping):
-        raise ValueError(f"weights must be an object of criterion -> number, got {weights!r}")
+        raise ValueError(
+            f"weights must be an object of criterion -> number, got {weights!r}"
+        )
     if not weights:
         raise ValueError("weights must not be empty")
     for name, w in weights.items():
         if isinstance(w, bool) or not isinstance(w, (int, float)):
             raise ValueError(f"weight {name!r}: expected a number, got {w!r}")
         if not math.isfinite(_finite(w)) or w < 0:
-            raise ValueError(f"weight {name!r}: expected a finite non-negative number, got {w!r}")
+            raise ValueError(
+                f"weight {name!r}: expected a finite non-negative number, got {w!r}"
+            )
     if "evidence_strength" in weights:
         raise ValueError(
             "evidence_strength is not a value criterion and cannot be weighted; "
@@ -255,7 +259,9 @@ def _validate_weights(weights: object) -> dict[str, float]:
         )
     total = sum(weights.values())
     if not math.isclose(total, 1.0, abs_tol=1e-9):
-        raise ValueError(f"weights must sum to 1.0, got {total!r} from {sorted(weights)}")
+        raise ValueError(
+            f"weights must sum to 1.0, got {total!r} from {sorted(weights)}"
+        )
     return dict(weights)
 
 
@@ -265,7 +271,9 @@ def _validate_level(criterion: str, value: object) -> float | None:
         return None
     # bool is an int subclass, so this check must come first.
     if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ValueError(f"{criterion!r}: expected one of {list(LEVELS)} or null, got {value!r}")
+        raise ValueError(
+            f"{criterion!r}: expected one of {list(LEVELS)} or null, got {value!r}"
+        )
     v = _finite(value)
     if not math.isfinite(v):
         raise ValueError(f"{criterion!r}: expected a finite number, got {value!r}")
@@ -284,7 +292,9 @@ def _validate_level(criterion: str, value: object) -> float | None:
     return v
 
 
-def _bounds(clean: Mapping[str, float | None], w: Mapping[str, float]) -> tuple[float, float, float]:
+def _bounds(
+    clean: Mapping[str, float | None], w: Mapping[str, float]
+) -> tuple[float, float, float]:
     """(lo, point, hi) for one option. Weights sum to 1, so these are 0-100."""
     lo = sum(v * w[k] for k, v in clean.items() if v is not None)
     known_weight = sum(w[k] for k, v in clean.items() if v is not None)
@@ -314,7 +324,9 @@ def score_choice(
     )
 
 
-def _clean_sub_scores(sub_scores: Mapping[str, object], w: Mapping[str, float]) -> dict[str, float | None]:
+def _clean_sub_scores(
+    sub_scores: Mapping[str, object], w: Mapping[str, float]
+) -> dict[str, float | None]:
     unexpected = sorted(set(sub_scores) - set(w))
     if unexpected:
         hint = ""
@@ -395,9 +407,13 @@ def rank_choices(
 
     for raw in choices:
         if not isinstance(raw, Mapping):
-            raise ValueError(f"every choice must be an object with a 'label', got {raw!r}")
+            raise ValueError(
+                f"every choice must be an object with a 'label', got {raw!r}"
+            )
         if not isinstance(raw.get("label"), str):
-            raise ValueError(f"every choice needs a string label, got {raw.get('label')!r}")
+            raise ValueError(
+                f"every choice needs a string label, got {raw.get('label')!r}"
+            )
         label = sanitise_label(raw["label"])
         if not label:
             raise ValueError(f"every choice needs a non-empty label: {raw!r}")
@@ -413,7 +429,9 @@ def rank_choices(
         # every way of saying no except one.
         feasible = raw.get("feasible", True)
         if not isinstance(feasible, bool):
-            raise ValueError(f"{label!r}: 'feasible' must be true or false, got {feasible!r}")
+            raise ValueError(
+                f"{label!r}: 'feasible' must be true or false, got {feasible!r}"
+            )
         if not feasible:
             excluded.append(Ranked(label=label, score=None, feasible=False, note=note))
             continue
@@ -427,7 +445,9 @@ def rank_choices(
 
         scores = raw.get("scores")
         if not isinstance(scores, Mapping):
-            raise ValueError(f"{label!r}: 'scores' must be an object of criterion -> anchor level or null")
+            raise ValueError(
+                f"{label!r}: 'scores' must be an object of criterion -> anchor level or null"
+            )
         clean = _clean_sub_scores(scores, w)
         lo, point, hi = _bounds(clean, w)
         cleaned.append((label, clean))
@@ -505,11 +525,17 @@ def format_table(verdict: Verdict) -> str:
     for i, r in enumerate(verdict.ranked, 1):
         s = r.score
         assert s is not None
-        bounds = "" if s.certain else f"  [{s.lo}-{s.hi}, unknown: {', '.join(s.unknown)}]"
+        bounds = (
+            "" if s.certain else f"  [{s.lo}-{s.hi}, unknown: {', '.join(s.unknown)}]"
+        )
         ev = "unverified" if r.evidence is None else f"evidence {r.evidence:g}"
-        lines.append(f"{i}. {r.label}  score {s.lo:g}{bounds}  ({ev}){('  — ' + r.note) if r.note else ''}")
+        lines.append(
+            f"{i}. {r.label}  score {s.lo:g}{bounds}  ({ev}){('  — ' + r.note) if r.note else ''}"
+        )
     for r in verdict.excluded:
-        lines.append(f"--. {r.label}  EXCLUDED — {r.note or 'violates a stated hard constraint'}")
+        lines.append(
+            f"--. {r.label}  EXCLUDED — {r.note or 'violates a stated hard constraint'}"
+        )
 
     lines.append("")
     # The raw top-two gap is deliberately not printed. It is the number most
@@ -569,7 +595,9 @@ def _verdict_to_dict(v: Verdict) -> dict:
 MARKER = "(Recommended)"
 
 
-def decision_fields(payload: Mapping[str, object], verdict: Verdict) -> tuple[str | None, bool]:
+def decision_fields(
+    payload: Mapping[str, object], verdict: Verdict
+) -> tuple[str | None, bool]:
     """Validated (pick, timed_out). Raises ValueError rather than log a wrong record.
 
     `timed_out` is the honest record for a headless/autonomous run: the ask
@@ -595,7 +623,9 @@ def decision_fields(payload: Mapping[str, object], verdict: Verdict) -> tuple[st
     if not isinstance(raw, str):
         raise ValueError(f"'pick' must be the chosen option's label, got {raw!r}")
     if timed_out:
-        raise ValueError("'pick' and 'timed_out': true contradict each other: an expired ask has no pick")
+        raise ValueError(
+            "'pick' and 'timed_out': true contradict each other: an expired ask has no pick"
+        )
     pick = sanitise_label(raw)
     if pick.endswith(MARKER):
         pick = pick[: -len(MARKER)].rstrip()
@@ -654,7 +684,9 @@ def append_log(path: Path, payload: Mapping[str, object], verdict: Verdict) -> N
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--json", action="store_true", help="emit JSON instead of a table")
     ap.add_argument(
         "--log",
@@ -667,9 +699,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = ap.parse_args(argv)
 
+    # JSON on the wire is UTF-8 (RFC 8259). On Windows, piped stdio defaults to
+    # the ANSI code page: non-ASCII labels arrive as mojibake and anything
+    # outside cp1252 crashes the table on the way out.
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8")  # type: ignore[union-attr]
+
     try:
         payload = json.load(sys.stdin)
-    except json.JSONDecodeError as exc:
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         print(f"error: stdin is not valid JSON: {exc}", file=sys.stderr)
         return 2
 
@@ -688,10 +726,18 @@ def main(argv: list[str] | None = None) -> int:
             append_log(Path(args.log), payload, verdict)
         except LogPathError as exc:
             print(f"error: {exc}", file=sys.stderr)
-            print(json.dumps(_verdict_to_dict(verdict), indent=2) if args.json else format_table(verdict))
+            print(
+                json.dumps(_verdict_to_dict(verdict), indent=2)
+                if args.json
+                else format_table(verdict)
+            )
             return 1
 
-    print(json.dumps(_verdict_to_dict(verdict), indent=2) if args.json else format_table(verdict))
+    print(
+        json.dumps(_verdict_to_dict(verdict), indent=2)
+        if args.json
+        else format_table(verdict)
+    )
     return 0
 
 
