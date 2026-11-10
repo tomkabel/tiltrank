@@ -74,6 +74,35 @@ jobs:
       - name: protocol assertions (offline fixtures)
         run: python3 .claude/skills/tiltrank/scripts/eval/check_trace.py
 
+  # Required: SKILL.md claims windows in `platforms`. No continue-on-error, so a
+  # red cell fails the aggregate `test` check. `python`, not `python3`: that is
+  # what a python.org install puts on PATH. Default shell (pwsh), CRLF checkout
+  # and the cp1252 ANSI code page are all left as a Windows user gets them.
+  # One command per step: pwsh only checks the exit code of the last one.
+  tests-windows:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: unit tests (validation, gating, ranking)
+        run: python .claude/skills/tiltrank/scripts/test_rubric.py
+      - name: protocol assertions (offline fixtures)
+        run: python .claude/skills/tiltrank/scripts/eval/check_trace.py
+      - name: install contract
+        run: python .claude/skills/tiltrank/scripts/test_install_contract.py
+      - name: skill contract (SKILL.md wording vs checker rules)
+        run: python .claude/skills/tiltrank/scripts/test_skill_contract.py
+      - name: import checker self-test
+        run: python .github/scripts/test_stdlib_only.py
+      - name: no stray imports outside the stdlib
+        run: python .github/scripts/stdlib_only.py .claude
+
   validate-skill:
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -112,15 +141,16 @@ jobs:
   # tests-macos is not in needs: an experimental red cell must not fail, and
   # must not be able to pass, this check.
   test:
-    needs: [tests, validate-skill, extension-typecheck]
+    needs: [tests, tests-windows, validate-skill, extension-typecheck]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: fail unless every required job above passed
         run: |
-          echo "tests=${{ needs.tests.result }} validate-skill=${{ needs.validate-skill.result }} extension-typecheck=${{ needs.extension-typecheck.result }}"
+          echo "tests=${{ needs.tests.result }} tests-windows=${{ needs.tests-windows.result }} validate-skill=${{ needs.validate-skill.result }} extension-typecheck=${{ needs.extension-typecheck.result }}"
           if [ "${{ needs.tests.result }}" != "success" ] \
+             || [ "${{ needs.tests-windows.result }}" != "success" ] \
              || [ "${{ needs.validate-skill.result }}" != "success" ] \
              || [ "${{ needs.extension-typecheck.result }}" != "success" ]; then
             echo "::error::a job in the test workflow did not succeed"

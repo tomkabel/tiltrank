@@ -34,7 +34,7 @@ python3 $S/rubric.py --json < input.json
 python3 $S/eval/check_trace.py --live --driver claude|hermes|pi [--only <scenario-id>] [--repeat N] [--model M]
 ```
 
-CI (`.github/workflows/test.yml`) runs on Python 3.10 and 3.13 and fails on any import outside the stdlib (`.github/scripts/stdlib_only.py`, which also catches `__import__`/`importlib`).
+CI (`.github/workflows/test.yml`) runs on Python 3.10 and 3.13, on Linux and Windows (both required; macOS is experimental), and fails on any import outside the stdlib (`.github/scripts/stdlib_only.py`, which also catches `__import__`/`importlib`).
 
 ## Architecture
 
