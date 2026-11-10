@@ -277,6 +277,8 @@ candidate, no score numbers anywhere in the rendered text.
 the `(Recommended)` suffix. Do not shorten, reword or translate a label, and do
 not offer anything the payload did not contain. A candidate you added in step 1
 or a hybrid you want to offer goes into the payload and is scored first.
+An option the script excluded is never offered: name it in the question body
+with the constraint it fails.
 
 In each option's description:
 
@@ -496,7 +498,7 @@ python3 <skill-dir>/scripts/eval/check_trace.py --live --driver hermes
 python3 <skill-dir>/scripts/eval/check_trace.py --live --driver pi
 ```
 
-`check_trace.py` asserts what actually matters: ≤4 options per call, no
+`check_trace.py` asserts what actually matters: a rubric run before any ask, ≤4 options per call, no
 score-shaped number in any rendered text, `(Recommended)` matching the ranking,
 escalation happening exactly when the rubric's reasons say it should, excluded
 options never offered, `Other` answers and hybrid picks re-scored before use,
