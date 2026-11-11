@@ -1,0 +1,113 @@
+{
+  "_about": [
+    "Held-out benchmark for the 2026-11-11 plan. scenarios.json is the dev set that SKILL.md wording is iterated against; nobody tunes against this file.",
+    "Frozen by commit before any run. A later change to a key needs a CHANGELOG entry and a baseline re-run.",
+    "Keys: {\"band\": \"Undetermined\"} means the last rubric run must be Undetermined. {\"accepted\": [...]} means the last run's top (or co-top on a tied conservative bound) must be in the set.",
+    "\"failure\" lists shared remote stores for the two single-instance, restart-tolerant cases; a top pick from that list is the demo's error in another domain.",
+    "\"repeat\" overrides --repeat for that case."
+  ],
+  "cases": [
+    {
+      "id": "broker-underspecified",
+      "kind": "underspecified",
+      "user_message": "Which message broker should the new service use?",
+      "candidates": ["NATS JetStream", "Apache Pulsar", "Postgres SKIP LOCKED"],
+      "key": {"band": "Undetermined"},
+      "why": "No stated requirement (volume, ordering, retention, existing infra) separates these; any ranking comes from priors alone."
+    },
+    {
+      "id": "bundler-underspecified",
+      "kind": "underspecified",
+      "user_message": "Pick a bundler for the web app.",
+      "candidates": ["Vite", "webpack", "esbuild"],
+      "key": {"band": "Undetermined"},
+      "why": "Nothing stated about the app, its framework, legacy plugins or build targets. All three ship working web builds (each tool's own getting-started docs)."
+    },
+    {
+      "id": "retry-underspecified",
+      "kind": "underspecified",
+      "user_message": "What retry policy should the outbound HTTP client use?",
+      "candidates": ["No automatic retries", "Fixed delay, three attempts", "Exponential backoff with jitter"],
+      "key": {"band": "Undetermined"},
+      "why": "Whether the calls are idempotent is unstated, and that decides whether retrying is safe at all (RFC 9110 section 9.2.2)."
+    },
+    {
+      "id": "primary-key-underspecified",
+      "kind": "underspecified",
+      "user_message": "Which primary key format for the new table?",
+      "candidates": ["Auto-increment integer", "UUIDv4", "ULID"],
+      "key": {"band": "Undetermined"},
+      "why": "Single-writer vs multi-region generation, sortability and exposure of the key are all unstated; each candidate wins under some of them."
+    },
+    {
+      "id": "broker-specified",
+      "kind": "specified",
+      "user_message": "Pick a queue for the background job runner. Hard requirement: no new infrastructure, Postgres is the only service we run. Preference: jobs retry with backoff.",
+      "candidates": ["NATS JetStream", "Apache Pulsar", "Postgres SKIP LOCKED"],
+      "key": {"accepted": ["Postgres SKIP LOCKED"]},
+      "why": "NATS and Pulsar are new services and fail the hard requirement. SELECT ... FOR UPDATE SKIP LOCKED is documented for exactly this queue pattern (PostgreSQL docs, SELECT, 'The Locking Clause')."
+    },
+    {
+      "id": "feature-flags-specified",
+      "kind": "specified",
+      "user_message": "Where should feature flags live? Hard requirement: a flag must flip without a deploy. Preference: no new vendor.",
+      "candidates": ["Environment variables", "Database table with an admin page", "LaunchDarkly"],
+      "key": {"accepted": ["Database table with an admin page"]},
+      "why": "Environment variables need a restart or redeploy to change, failing the hard requirement. LaunchDarkly passes it but is a new vendor (soft). The table passes both."
+    },
+    {
+      "id": "session-store-single-instance",
+      "kind": "specified",
+      "single_box": true,
+      "repeat": 10,
+      "user_message": "Session store for the internal admin tool. It runs as one instance, we have no database yet, and users logging in again after a deploy is explicitly fine. Hard requirement: no new service to operate.",
+      "candidates": ["In-process memory", "DynamoDB sessions", "Postgres sessions table"],
+      "key": {"accepted": ["In-process memory"]},
+      "failure": ["DynamoDB sessions", "Postgres sessions table"],
+      "why": "One instance and restart tolerance are stated, so a shared store solves a problem the user said they do not have, and both shared stores are new services (hard fail). Flask/Django/Express session docs all offer in-process memory for this shape."
+    },
+    {
+      "id": "rate-limit-single-instance",
+      "kind": "specified",
+      "single_box": true,
+      "repeat": 10,
+      "user_message": "Rate limiting for the webhook receiver. One process, no replicas planned, and counters may reset on restart. Hard requirement: no network hop on the hot path.",
+      "candidates": ["In-process token bucket", "Postgres counter table", "Shared counter service"],
+      "key": {"accepted": ["In-process token bucket"]},
+      "failure": ["Postgres counter table", "Shared counter service"],
+      "why": "Both shared options add a network hop per request, failing the hard requirement. Token bucket is the standard algorithm (RFC 2697/2698 describe it for traffic policing)."
+    },
+    {
+      "id": "bundler-specified",
+      "kind": "specified",
+      "user_message": "Bundler for a TypeScript library we publish to npm. Hard requirement: emit both ESM and CJS with type declarations from one config. Preference: as little config as possible.",
+      "candidates": ["tsup", "Vite library mode", "webpack"],
+      "key": {"accepted": ["tsup"]},
+      "why": "tsup emits esm+cjs and .d.ts from one command (`--format esm,cjs --dts`, tsup docs). Vite library mode needs a dts plugin; webpack needs a declaration setup and a config file. Only tsup satisfies hard and soft at once."
+    },
+    {
+      "id": "retry-specified",
+      "kind": "specified",
+      "user_message": "Retry policy for calls to the payment provider. Hard requirement: the charge call is not idempotent and the provider has no idempotency keys, so a duplicate retry double-charges. Preference: keep it simple.",
+      "candidates": ["No automatic retries", "Fixed delay, three attempts", "Exponential backoff with jitter"],
+      "key": {"accepted": ["No automatic retries"]},
+      "why": "Retrying a non-idempotent request without an idempotency key can duplicate the side effect (RFC 9110 section 9.2.2; Stripe's idempotent-requests docs exist precisely to make retries safe)."
+    },
+    {
+      "id": "logs-specified",
+      "kind": "specified",
+      "user_message": "Where should application logs go? Hard requirement: we run on Kubernetes with an existing Loki stack and no new log vendor. Preference: structured JSON lines.",
+      "candidates": ["Stdout to the cluster collector", "Files on the pod filesystem", "Ship directly to Datadog"],
+      "key": {"accepted": ["Stdout to the cluster collector"]},
+      "why": "Datadog is a new vendor (hard fail). Pod-local files are lost on reschedule and bypass the collector. Kubernetes logging architecture docs describe stdout/stderr as the path the node agent (here Promtail/Alloy) collects."
+    },
+    {
+      "id": "primary-key-specified",
+      "kind": "specified",
+      "user_message": "Primary key format for events written in several regions and merged later. Hard requirement: keys are generated without coordination between regions. Preference: roughly time-sortable.",
+      "candidates": ["Auto-increment integer", "UUIDv4", "ULID"],
+      "key": {"accepted": ["ULID"]},
+      "why": "Auto-increment needs a coordinating sequence (hard fail). UUIDv4 is coordination-free but random, so unsorted (soft miss). ULID is coordination-free and lexicographically time-sortable (ULID spec)."
+    }
+  ]
+}

@@ -873,6 +873,96 @@ def test_injection_flag_is_best_effort_but_not_trivially_bypassed() -> None:
         assert not injection_findings([{"label": text}]), f"false positive: {text!r}"
 
 
+# --------------------------------------------------------------------------- #
+# held-out benchmark (review 2026-11-11, phase 1)
+# --------------------------------------------------------------------------- #
+
+
+def _run(verdict: dict) -> dict:
+    return {"rubric_runs": [{"verdict": verdict}]}
+
+
+def test_key_hit_grades_the_last_run_against_the_key() -> None:
+    from check_trace import key_hit  # pyright: ignore[reportMissingImports]
+
+    und = {
+        "band": "Undetermined",
+        "recommended": None,
+        "ranked": [{"label": "A", "lo": 60}],
+    }
+    sep = {
+        "band": "Separated",
+        "recommended": "A",
+        "ranked": [{"label": "A", "lo": 60}, {"label": "B", "lo": 30}],
+    }
+    tie = {
+        "band": "Contested",
+        "recommended": "A",
+        "ranked": [{"label": "A", "lo": 60}, {"label": "B", "lo": 60}],
+    }
+    band_key = {"key": {"band": "Undetermined"}}
+    assert key_hit(band_key, _run(und)) is True
+    assert key_hit(band_key, _run(sep)) is False
+    assert key_hit({"key": {"accepted": ["B"]}}, _run(sep)) is False
+    assert key_hit({"key": {"accepted": ["B"]}}, _run(tie)) is True  # co-top counts
+    assert key_hit({"key": {"accepted": ["A"]}}, _run(und)) is False
+    assert key_hit(band_key, {"rubric_runs": []}) is None
+    # The last run is the decision: an invented requirement that ranks an
+    # underspecified case after an Undetermined first run is a miss.
+    two = {"rubric_runs": [{"verdict": und}, {"verdict": sep}]}
+    assert key_hit(band_key, two) is False
+
+
+def test_benchmark_report_pools_with_wilson_bounds() -> None:
+    from check_trace import benchmark_report, wilson  # pyright: ignore[reportMissingImports]
+
+    cases = [
+        {"id": "u", "kind": "underspecified"},
+        {"id": "s", "kind": "specified", "single_box": True, "failure": ["Remote"]},
+    ]
+    rows = {
+        "u": [{"hit": True, "top": None, "band": "Undetermined", "escalate": True}] * 3
+        + [{"hit": False, "top": "X", "band": "Separated", "escalate": False}],
+        "s": [{"hit": False, "top": "Remote", "band": "Separated", "escalate": False}]
+        + [{"hit": True, "top": "Local", "band": "Contested", "escalate": True}] * 2
+        + [{"hit": None, "top": None, "band": None, "escalate": None}],
+    }
+    r = benchmark_report(cases, rows)
+    assert (r["underspecified"]["hits"], r["underspecified"]["n"]) == (3, 4)
+    assert r["underspecified"]["wilson_lo"] == wilson(3, 4)[0]
+    assert (r["specified"]["hits"], r["specified"]["n"]) == (2, 3)
+    assert r["escalation_on_specified"] == {"escalated": 2, "n": 3, "rate": 0.667}
+    assert (
+        r["single_box_failure"]["failures"] == 1 and r["single_box_failure"]["n"] == 3
+    )
+    assert r["per_case"]["s"]["graded"] == 3 and r["per_case"]["s"]["runs"] == 4
+
+
+def test_benchmark_is_held_out_from_the_dev_set() -> None:
+    """No benchmark case shares a domain noun with the dev set's cache scenarios,
+    every case has a key with a cited justification, and the mix is 4 + 8 with
+    two single-box cases."""
+    ev = HERE / "eval"
+    bench = json.loads((ev / "benchmark.json").read_text(encoding="utf-8"))["cases"]
+    dev = json.loads((ev / "scenarios.json").read_text(encoding="utf-8"))
+    cache_nouns = {"cache", "caching"} | {
+        c for s in dev if "cache" in s["user_message"].lower() for c in s["candidates"]
+    }
+    for case in bench:
+        blob = " ".join([case["user_message"], *case["candidates"]]).lower()
+        hits = [n for n in cache_nouns if n.lower() in blob]
+        assert not hits, f"{case['id']} shares {hits} with the dev set"
+        assert case["key"] and case["why"], case["id"]
+        assert set(case["key"]) in ({"band"}, {"accepted"}), case["id"]
+        if "accepted" in case["key"]:
+            assert set(case["key"]["accepted"]) <= set(case["candidates"]), case["id"]
+        assert set(case.get("failure", [])) <= set(case["candidates"]), case["id"]
+    kinds = [c["kind"] for c in bench]
+    assert (kinds.count("underspecified"), kinds.count("specified")) == (4, 8)
+    assert sum(1 for c in bench if c.get("single_box")) == 2
+    assert len({c["id"] for c in bench}) == len(bench)
+
+
 def run_all() -> None:
     tests = [
         v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)

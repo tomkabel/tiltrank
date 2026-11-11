@@ -1143,6 +1143,100 @@ def live_verdict(
     return ("FAIL" if hi > gate else "PASS"), broken, len(scored), activated
 
 
+def co_top(verdict: dict) -> set[str]:
+    """Labels tied with the top option on the conservative bound. Empty when
+    the run was Undetermined (no `recommended`) or nothing ranked."""
+    ranked = verdict.get("ranked") or []
+    if not ranked or verdict.get("recommended") is None:
+        return set()
+    lead = ranked[0].get("lo")
+    return {r["label"] for r in ranked if r.get("lo") == lead}
+
+
+def key_hit(case: dict, trace: dict) -> bool | None:
+    """Did the run's final rubric verdict agree with the case's key?
+
+    None when rubric.py never ran (nothing to grade). The *last* run is judged:
+    an underspecified case passes only if the agent held `Undetermined` open
+    rather than inventing a requirement to rank; REQUIREMENT_GROUNDED catches
+    the invention separately.
+    """
+    key = case.get("key")
+    runs = trace.get("rubric_runs") or []
+    if not key or not runs:
+        return None
+    verdict = runs[-1].get("verdict") or {}
+    if "band" in key:
+        return verdict.get("band") == key["band"]
+    accepted = {sanitise_label(a) for a in key.get("accepted", [])}
+    return bool(co_top(verdict) & accepted)
+
+
+def benchmark_report(cases: list[dict], results: dict[str, list[dict]]) -> dict:
+    """Pooled Wilson bounds per the plan's Measurement section. Runs within a
+    case are correlated, so the pooled bound is optimistic; per-case counts
+    sit next to it for that reason."""
+    pools: dict[str, list[bool]] = {"underspecified": [], "specified": []}
+    escalated: list[bool] = []
+    single_box_fail = single_box_n = 0
+    per_case: dict[str, dict] = {}
+    for case in cases:
+        rows = results.get(case["id"], [])
+        graded = [r for r in rows if r["hit"] is not None]
+        hits = sum(1 for r in graded if r["hit"])
+        per_case[case["id"]] = {
+            "kind": case["kind"],
+            "hits": hits,
+            "graded": len(graded),
+            "runs": len(rows),
+            "tops": [r["top"] for r in rows],
+            "bands": [r["band"] for r in rows],
+        }
+        pools[case["kind"]].extend(bool(r["hit"]) for r in graded)
+        if case["kind"] == "specified":
+            escalated.extend(bool(r["escalate"]) for r in graded)
+        if case.get("single_box"):
+            failure = {sanitise_label(f) for f in case.get("failure", [])}
+            single_box_n += len(graded)
+            single_box_fail += sum(1 for r in graded if r["top"] in failure)
+    report: dict = {"per_case": per_case}
+    for kind, pool in pools.items():
+        n, k = len(pool), sum(pool)
+        lo, hi = wilson(k, n)
+        report[kind] = {"hits": k, "n": n, "wilson_lo": lo, "wilson_hi": hi}
+    n, k = len(escalated), sum(escalated)
+    report["escalation_on_specified"] = {
+        "escalated": k,
+        "n": n,
+        "rate": round(k / n, 3) if n else None,
+    }
+    _, hi = wilson(single_box_fail, single_box_n)
+    report["single_box_failure"] = {
+        "failures": single_box_fail,
+        "n": single_box_n,
+        "wilson_hi": hi,
+    }
+    return report
+
+
+def _print_benchmark(report: dict) -> None:
+    print("\nbenchmark (held-out key):")
+    for cid, row in report["per_case"].items():
+        print(f"  {cid:<34} {row['hits']}/{row['graded']} agree  tops={row['tops']}")
+    for kind in ("underspecified", "specified"):
+        r = report[kind]
+        print(
+            f"{kind}: {r['hits']}/{r['n']} agree with the key, "
+            f"Wilson 95% [{r['wilson_lo']:.2f}, {r['wilson_hi']:.2f}]"
+        )
+    e = report["escalation_on_specified"]
+    print(f"escalation rate on specified cases: {e['escalated']}/{e['n']}")
+    s = report["single_box_failure"]
+    print(
+        f"single-box failure (shared store on top): {s['failures']}/{s['n']}, 95% upper bound {s['wilson_hi']:.2f}"
+    )
+
+
 def run_live(
     model: str,
     repeat: int,
@@ -1150,8 +1244,15 @@ def run_live(
     gate: float,
     only: str | None,
     driver: str = "claude",
+    benchmark: bool = False,
+    results_path: Path | None = None,
 ) -> int:
-    scenarios = json.loads((HERE / "scenarios.json").read_text(encoding="utf-8"))
+    if benchmark:
+        scenarios = json.loads((HERE / "benchmark.json").read_text(encoding="utf-8"))[
+            "cases"
+        ]
+    else:
+        scenarios = json.loads((HERE / "scenarios.json").read_text(encoding="utf-8"))
     if only:
         scenarios = [s for s in scenarios if s["id"] == only]
         if not scenarios:
@@ -1163,10 +1264,12 @@ def run_live(
     out_dir.mkdir(parents=True, exist_ok=True)
     outcomes: list[list[str] | None] = []
     per_scenario: dict[str, list[str | None]] = {}
+    graded: dict[str, list[dict]] = {}
 
     for sc in scenarios:
         recs: list[str | None] = []
-        for k in range(repeat):
+        rows: list[dict] = []
+        for k in range(int(sc.get("repeat") or repeat)):
             run_id = f"{sc['id']}.{k}"
             trace = run_one(sc, model, out_dir, run_id, driver=driver)
             (out_dir / f"{run_id}.json").write_text(
@@ -1198,11 +1301,39 @@ def run_live(
                 None,
             )
             recs.append(rec)
+            last = trace["rubric_runs"][-1]["verdict"]
+            hit = key_hit(sc, trace)
+            rows.append(
+                {
+                    "run": run_id,
+                    "hit": hit,
+                    "top": last.get("recommended"),
+                    "band": last.get("band"),
+                    "escalate": last.get("escalate"),
+                    "violations": violations,
+                }
+            )
+            key_note = "" if hit is None else f"  key={'hit' if hit else 'MISS'}"
             print(
                 f"  {'ok  ' if not violations else 'FAIL'} {run_id:<38} "
-                f"{violations or 'clean'}  rec={rec}"
+                f"{violations or 'clean'}  rec={rec}{key_note}"
             )
         per_scenario[sc["id"]] = recs
+        graded[sc["id"]] = rows
+
+    if benchmark:
+        report = benchmark_report(scenarios, graded)
+        report["meta"] = {
+            "driver": driver,
+            "model": model
+            or {"claude": CLAUDE_DEFAULT_MODEL}.get(driver, "driver default"),
+            "repeat": repeat,
+            "traces": str(out_dir),
+        }
+        _print_benchmark(report)
+        (results_path or out_dir / "benchmark-results.json").write_text(
+            json.dumps(report, indent=2) + "\n", encoding="utf-8"
+        )
 
     verdict, broken, scored, activated = live_verdict(outcomes, gate)
     runs = len(outcomes)
@@ -1283,12 +1414,31 @@ def main() -> int:
         choices=["claude", "hermes", "pi"],
         help="live driver: which harness's CLI to run (default: claude)",
     )
+    ap.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="with --live: run the held-out benchmark.json instead of scenarios.json "
+        "and grade each run against its key (a case's own `repeat` overrides --repeat)",
+    )
+    ap.add_argument(
+        "--results",
+        type=Path,
+        default=None,
+        help="with --benchmark: where to write the pooled report (default: <out>/benchmark-results.json)",
+    )
     args = ap.parse_args()
     if not args.live:
         return run_fixtures()
     out = args.out or Path(tempfile.mkdtemp(prefix="dp-eval-"))
     return run_live(
-        args.model, args.repeat, out, args.gate, args.only, driver=args.driver
+        args.model,
+        args.repeat,
+        out,
+        args.gate,
+        args.only,
+        driver=args.driver,
+        benchmark=args.benchmark,
+        results_path=args.results,
     )
 
 
