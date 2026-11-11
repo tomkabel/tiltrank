@@ -1183,6 +1183,47 @@ def test_quote_may_not_be_the_question_itself() -> None:
     assert rank_choices(base, None, SOFT, q).recommended is not None
 
 
+def test_long_requirement_text_and_quote_are_preserved() -> None:
+    quote = (
+        "I prefer the smaller change because our team must maintain this service "
+        "through several release cycles with limited time for debugging and upgrades."
+    )
+    assert len(quote) > 120
+    req = [{**SOFT[0], "text": quote + " Cafe\u0301\x00", "quote": quote}]
+    base = [choice("A", fit_to_constraints=HIGH), choice("B")]
+    verdict = rank_choices(base, None, req, "Which approach should we use?")
+    assert verdict.requirements[0]["text"] == quote + " Café"
+    assert verdict.requirements[0]["quote"] == quote
+    event = {**_verdict("A"), "requirements": list(verdict.requirements)}
+    findings = check({"user_messages": ["My preference: " + quote], "events": [event]})
+    assert "REQUIREMENT_GROUNDED" not in findings
+    assert "QUOTE_NOT_THE_QUESTION" not in findings
+
+
+def test_long_question_quote_is_rejected() -> None:
+    question = (
+        "Which retry policy should the client use when requests to the upstream "
+        "service fail during scheduled maintenance or an unexpected network outage?"
+    )
+    assert len(question) > 120
+    req = [{**SOFT[0], "quote": question}]
+    base = [choice("A", fit_to_constraints=HIGH), choice("B")]
+    verdict = rank_choices(base, None, req)
+    assert verdict.requirements[0]["quote"] == question
+    raises(
+        lambda: rank_choices(base, None, req, question),
+        containing="the question itself",
+    )
+    assert (
+        cli({"question": question, "requirements": req, "choices": base}).returncode
+        == 1
+    )
+    event = {**_verdict("A"), "requirements": list(verdict.requirements)}
+    findings = check({"user_messages": [question], "events": [event]})
+    assert "REQUIREMENT_GROUNDED" not in findings
+    assert "QUOTE_NOT_THE_QUESTION" in findings
+
+
 def test_log_records_question_requirements_and_rests_on() -> None:
     with tempfile.TemporaryDirectory() as d:
         payload = {

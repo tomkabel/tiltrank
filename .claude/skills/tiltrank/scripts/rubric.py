@@ -94,13 +94,18 @@ _CONTROL_RE = re.compile(
 )
 
 
-def sanitise_label(raw: object) -> str:
-    """Normalise a candidate label for safe rendering. Returns '' if it is empty."""
+def _normalise_text(raw: object) -> str:
+    """Normalise whitespace and strip controls without truncating content."""
     if raw is None:
         return ""
     text = unicodedata.normalize("NFC", str(raw))
     text = _CONTROL_RE.sub(" ", text)
-    text = " ".join(text.split())
+    return " ".join(text.split())
+
+
+def sanitise_label(raw: object) -> str:
+    """Normalise a candidate label for safe rendering. Returns '' if it is empty."""
+    text = _normalise_text(raw)
     if len(text) > MAX_LABEL_LEN:
         text = text[: MAX_LABEL_LEN - 1].rstrip() + "…"
     return text
@@ -448,8 +453,8 @@ def _validate_requirements(raw: object) -> list[dict]:
             )
         clean = {
             "id": rid,
-            "text": sanitise_label(item["text"]),
-            "quote": sanitise_label(item["quote"]),
+            "text": _normalise_text(item["text"]),
+            "quote": _normalise_text(item["quote"]),
             "kind": kind,
             "source": source,
         }
