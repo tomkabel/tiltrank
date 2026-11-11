@@ -40,6 +40,9 @@ The miss was one case: `retry-underspecified` ranked 4/5 times by quoting the wh
 - **Hermes: no pass.** Under Hermes v0.23's multiplexing gateway a variable missing from the profile's `.env` resolves to the default, never the calling process's environment, so the driver's per-run `TILTRANK_LOG` cannot reach the terminal tool. Adding it to `terminal.env_passthrough` was tested and has no effect; a throwaway `HERMES_HOME` fails with "Gateway draining: not_ready". The release-pass requirement for Hermes is unmet.
 - Live drivers close stdin (every pi run used to hit the 900s timeout), and the pi driver runs with `-ne` so an operator package entry cannot load `extensions/tiltrank.test.ts` as an extension.
 
+### Known gaps
+- **No Hermes release pass for 0.4.0.** The plan requires one Hermes and one pi pass per release; 0.4.0 ships without the Hermes one, by decision on 2026-11-11. The live driver cannot capture `rubric.py`'s decision log under Hermes v0.23: the gateway never forwards the driver's per-run `TILTRANK_LOG` to the terminal tool, and neither `terminal.env_passthrough` nor a throwaway `HERMES_HOME` fixed it. Options not taken: writing the log path into `~/.hermes/.env` per run (that file holds provider secrets), and grading Hermes from its tool stream (breaks the rule that the script's own log is ground truth). Hermes protocol behaviour under 0.4.0 is therefore unmeasured.
+
 ## [Unreleased]
 
 ### Fixed
