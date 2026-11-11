@@ -415,6 +415,14 @@ autonomous runs. The skill must handle it without inventing a user decision.
   rather than a candidate, stop and re-frame instead.
 - **Consequential actions still need their normal confirmation.** Winning the
   ranking is not authorisation.
+- **Write an ADR for decisions that meet step 3's blast-radius bar, or when the
+  user asks.** With your file tool, `docs/decisions/NNNN-<slug>.md` at the next
+  free number, never overwriting, under the headings Context, Requirements
+  (quoted), Options considered (exclusion reason or the `lead rests on` line),
+  Decision (the user's pick, and whether it diverged), Assumptions, What would
+  make this wrong. **Its Decision section names the user's pick, and every
+  excluded option appears**. Small decisions get no ADR: a directory of trivial
+  ADRs is its own graveyard. The JSONL log stays the machine record.
 - **Log it.** Re-run the script with the same payload plus the user's pick
   (same `<skill-dir>` resolution as the scoring run):
 
@@ -424,28 +432,20 @@ python3 <skill-dir>/scripts/rubric.py --log <<'JSON'
 JSON
 ```
 
-  This appends one JSONL line to `.decisions.log`, recording the weights, every sub-score,
-  the verdict, whether review ran, the user's pick, and whether it diverged from your
-  recommendation. Run it from the artifact's own folder when the decision belongs to a
-  long-lived artifact, so the record sits beside what it decided. The log path must stay
-  inside that working directory, or inside `$TILTRANK_LOG_BASE` if you set one. It must
-  end in `.log`, and the final component must not be a symlink — a path that escapes is
-  rejected, which is the bound on what a poisoned `--log` can write. For a decision aid the
-  record is the product — it is the only way anyone later learns whether these
-  recommendations were any good, or whether users routinely overrode them. It is a
-  convenience record, not a tamper-evident ledger: anyone who can write the file can
-  rewrite it. Do not hand-edit it; annotate a wrong line in the host workflow's own log.
-- **Pass the pick label verbatim.** The script derives `diverged` by comparing the sanitised
-  `pick` string against the recommended option's own label, so a paraphrased pick — same
-  substance, different words — records a user override that never happened. Copy the label as
-  the ask rendered it. If the decision you will actually act on is a *synthesis* of two options —
-  take both halves, in sequence — that is not a paraphrase of either: add the hybrid to the payload
-  as its own labelled option and re-run before logging, or the pick string matches no label and logs
-  the same false divergence a paraphrase does. The script enforces this: it strips the ask's own
-  `(Recommended)` marker, then rejects a `pick` that matches no option label, and rejects a
-  `timed_out` or `escalated` that is not a JSON boolean. Fix the payload and re-run. `diverged` is the single field that later says whether the rankings
-  were any good; a wording-only mismatch destroys that signal while looking like healthy
-  dissent, and nothing downstream can tell the difference.
+  This appends one JSONL line to `.decisions.log`: the question, the requirements,
+  the weights, every level, the verdict, the `lead rests on` line, whether review
+  ran, the user's pick, and whether it diverged. Run it from the artifact's own
+  folder so the record sits beside what it decided. The path must stay inside the
+  working directory (or `$TILTRANK_LOG_BASE`), end in `.log`, and not be a
+  symlink; an escaping path is rejected. It is a convenience record, not a
+  tamper-evident ledger. Do not hand-edit it.
+- **Pass the pick label verbatim.** `diverged` compares the sanitised `pick` against
+  the recommended label, so a paraphrase records an override that never happened.
+  Copy the label as the ask rendered it. A *synthesis* of two options is not a
+  paraphrase of either: add the hybrid to the payload as its own labelled option
+  and re-run before logging. The script strips the ask's own `(Recommended)`
+  marker, rejects a `pick` that matches no label, and rejects a `timed_out` or
+  `escalated` that is not a JSON boolean.
 - **A wrong line stays in the file.** Record the correction in the host workflow's own log
   (its memlog or tracker), naming the line it corrects. Do not edit the line.
 

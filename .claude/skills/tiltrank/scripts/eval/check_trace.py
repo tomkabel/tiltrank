@@ -125,7 +125,10 @@ RULES: dict[str, str] = {
     "REQUIREMENT_GROUNDED": "Every `quote` is the user's own words, and every `ref` names a line you read",
     "NO_MENU_WHEN_UNDETERMINED": "On `Undetermined`, the ask is at most 3 closed clarifying questions, not the option menu",
     "ASSUMPTION_DISCLOSED": "every assumed requirement is stated in the ask body.",
+    "ADR_MATCHES_PICK": "Its Decision section names the user's pick, and every excluded option appears",
 }
+
+ADR_PATH_RE = re.compile(r"(^|/)docs/decisions/\d{4}-[^/]+\.md$")
 
 UNDETERMINED_REASON = "missing-context"
 
@@ -447,7 +450,53 @@ def check(trace: dict) -> list[str]:
             if req.get("source") == "assumed" and _norm(req.get("text")) not in shown:
                 bad.append("ASSUMPTION_DISCLOSED")
 
+    # An ADR that records a different decision than the one the user made, or
+    # drops an excluded option, is the hidden-dotfile problem in a visible file.
+    adr = trace.get("adr") or _adr_written(trace.get("tool_calls") or [])
+    if adr:
+        text = _norm(adr.get("text"))
+        decision = (
+            re.split(r"## ", text.split("## decision", 1)[1], maxsplit=1)[0]
+            if "## decision" in text
+            else ""
+        )
+        pick = next((a.get("label") for a in reversed(answers) if a.get("label")), None)
+        pick = pick or next(
+            (a.get("label") for a in reversed(actions) if a.get("label")), None
+        )
+        excluded_all = {x for r in rubrics for x in (r.get("excluded") or [])}
+        if not pick or _norm(_bare(pick)) not in decision:
+            bad.append("ADR_MATCHES_PICK")
+        if any(_norm(x) not in text for x in excluded_all):
+            bad.append("ADR_MATCHES_PICK")
+
     return sorted(set(bad))
+
+
+def _adr_written(tool_calls: list[dict]) -> dict | None:
+    """The last docs/decisions/NNNN-*.md a file-write tool produced, if any."""
+    found = None
+    for call in tool_calls:
+        if (call.get("name") or "").lower() not in {
+            "write",
+            "write_file",
+            "create_file",
+        }:
+            continue
+        raw = call.get("input")
+        if not isinstance(raw, dict):
+            continue
+        path = next(
+            (
+                raw[k]
+                for k in ("file_path", "path", "filePath")
+                if isinstance(raw.get(k), str)
+            ),
+            "",
+        )
+        if ADR_PATH_RE.search(path.replace("\\", "/")):
+            found = {"path": path, "text": str(raw.get("content") or "")}
+    return found
 
 
 def _totals_logged(rubric_runs: list[dict]) -> set[str]:

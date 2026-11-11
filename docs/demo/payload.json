@@ -1,0 +1,14 @@
+{
+  "question": "Which session store for the admin tool? It has to be self-hosted.",
+  "requirements": [
+    {"id": "self-hosted", "text": "must be self-hosted", "quote": "It has to be self-hosted", "kind": "hard", "source": "user"},
+    {"id": "instances", "text": "one instance", "quote": "One instance", "kind": "soft", "source": "user"},
+    {"id": "logout", "text": "a logout on deploy is acceptable", "quote": "Logout on deploy is fine", "kind": "soft", "source": "user"}
+  ],
+  "choices": [
+    {"label": "Signed cookies", "evidence": 90, "constraints": {"self-hosted": "pass"}, "scores": {"fit_to_constraints": 90, "reversibility": 90, "precedent": 90}},
+    {"label": "Postgres table", "evidence": 60, "constraints": {"self-hosted": "pass"}, "scores": {"fit_to_constraints": 60, "reversibility": 60, "precedent": 90}},
+    {"label": "Redis", "evidence": 60, "constraints": {"self-hosted": "pass"}, "scores": {"fit_to_constraints": 60, "reversibility": 60, "precedent": 90}},
+    {"label": "Managed auth SaaS", "evidence": 60, "constraints": {"self-hosted": "fail"}, "scores": {"fit_to_constraints": 60, "reversibility": 20, "precedent": 90}}
+  ]
+}

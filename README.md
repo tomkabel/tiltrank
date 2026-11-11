@@ -6,6 +6,14 @@ The name comes from the stability check: tiltrank tilts the weights a few hundre
 
 Works as a skill in **Claude Code**, **Hermes Agent**, and **pi**. Pure Python, no dependencies.
 
+<p align="center">
+  <img src="docs/demo.svg" alt="tiltrank in a Claude Code session: the first run comes back Undetermined and asks two clarifying questions; the second run ranks signed cookies first with the lead holding on every rating, excludes the managed SaaS for failing the self-hosted requirement, and an ADR records the pick" width="900">
+</p>
+
+The image is generated from [`docs/demo/payload.json`](docs/demo/payload.json)
+by `docs/demo/render.py`, and `docs/demo/test_demo_contract.py` fails if any
+rubric line in it is not real output.
+
 [![CI](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml/badge.svg)](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#requirements)
@@ -30,9 +38,14 @@ or a hair, or whether it checked anything first.
    a few hundred times, and swaps in the runner-up's rating one criterion at a
    time. If the leader changes either way, it says the call is contested and
    names the rating the lead rests on.
-4. **Asks you.** You get a normal menu in your agent's own UI: the top pick
-   marked *(Recommended)*, the runner-up's best argument, and an *Other* option.
-   Your pick wins, and it gets logged.
+4. **Refuses to rank without context.** If nothing you stated separates the
+   survivors, the band is *Undetermined* and the agent asks up to three closed
+   questions first. Every requirement it then scores against is quoted from you
+   or from a file it read; the eval checks that.
+5. **Asks you.** You get a normal menu in your agent's own UI: the top pick
+   marked *(Recommended)*, the rating the lead rests on, and an *Other* option.
+   Your pick wins, it gets logged, and a high-stakes decision gets an ADR under
+   `docs/decisions/`.
 
 You never see percentages or "82/100". Those numbers are utility scores, not
 probabilities, and people read too much into them. The menu shows plain labels
@@ -288,9 +301,12 @@ The net result was deleting two of the three original scripts.
     ├── rubric.py         scoring, rule gating, stability, decision log
     ├── test_rubric.py    unit tests
     └── eval/
-        ├── check_trace.py   behaviour checks + live harness
+        ├── check_trace.py   behaviour checks + live harness + --benchmark
         ├── fixtures.json    recorded traces, including broken ones
-        └── scenarios.json   scenarios for --live runs
+        ├── scenarios.json   dev-set scenarios for --live runs
+        ├── benchmark.json   held-out benchmark key (frozen; nobody tunes against it)
+        └── baseline.json    benchmark results on the pre-0.4.0 engine
+docs/demo/               hero payloads, renderer and its contract test
 extensions/tiltrank.ts   pi menu tool and /panel
 ```
 
