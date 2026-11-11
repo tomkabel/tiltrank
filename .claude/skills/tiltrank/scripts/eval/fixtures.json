@@ -3394,5 +3394,871 @@
         }
       ]
     }
+  },
+  {
+    "name": "clean-undetermined-clarify-then-rank",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "I can't rank these yet. How many API instances will run?",
+          "options": [
+            {
+              "label": "One instance",
+              "description": "a single process or box"
+            },
+            {
+              "label": "Several replicas",
+              "description": "behind a load balancer"
+            },
+            {
+              "label": "Don't know yet",
+              "description": "I will assume one instance and say so"
+            }
+          ]
+        },
+        {
+          "type": "rubric",
+          "recommended": "In-memory LRU",
+          "separated": false,
+          "reasons": [
+            "assumed-requirement"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "In-memory LRU",
+            "Redis",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            },
+            {
+              "id": "instances",
+              "text": "one instance, cold cache after restart is fine",
+              "quote": "Don't know yet",
+              "kind": "soft",
+              "source": "assumed"
+            }
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": true
+        },
+        {
+          "type": "ask",
+          "question": "Which cache? Assumed: one instance, cold cache after restart is fine. Lead rests on: fit_to_constraints of In-memory LRU. Excluded: Managed SaaS (must be self-hosted).",
+          "options": [
+            {
+              "label": "In-memory LRU (Recommended)",
+              "description": "nothing to operate, per-process"
+            },
+            {
+              "label": "Redis",
+              "description": "shared, one more service to run"
+            },
+            {
+              "label": "File-based",
+              "description": "no service, disk on the hot path"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "In-memory LRU",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "In-memory LRU"
+        }
+      ]
+    }
+  },
+  {
+    "name": "clean-undetermined-held-open",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "I can't rank these yet. How many API instances will run?",
+          "options": [
+            {
+              "label": "One instance",
+              "description": "a single process or box"
+            },
+            {
+              "label": "Several replicas",
+              "description": "behind a load balancer"
+            },
+            {
+              "label": "Don't know yet",
+              "description": "I will assume one instance and say so"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-menu-when-undetermined",
+    "expect_violations": [
+      "NO_MENU_WHEN_UNDETERMINED"
+    ],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Redis (Recommended)",
+              "description": "shared"
+            },
+            {
+              "label": "In-memory LRU",
+              "description": "local"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-clarify-offers-a-candidate",
+    "expect_violations": [
+      "NO_MENU_WHEN_UNDETERMINED"
+    ],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "How many instances?",
+          "options": [
+            {
+              "label": "One instance",
+              "description": ""
+            },
+            {
+              "label": "Redis",
+              "description": "just pick this"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-requirement-quote-not-in-user-message",
+    "expect_violations": [
+      "REQUIREMENT_GROUNDED"
+    ],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "we need Redis-level throughput",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "I can't rank these yet. How many API instances will run?",
+          "options": [
+            {
+              "label": "One instance",
+              "description": "a single process or box"
+            },
+            {
+              "label": "Several replicas",
+              "description": "behind a load balancer"
+            },
+            {
+              "label": "Don't know yet",
+              "description": "I will assume one instance and say so"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-repo-ref-never-read",
+    "expect_violations": [
+      "REQUIREMENT_GROUNDED"
+    ],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "repo",
+              "ref": "docker-compose.yml:14"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "I can't rank these yet. How many API instances will run?",
+          "options": [
+            {
+              "label": "One instance",
+              "description": "a single process or box"
+            },
+            {
+              "label": "Several replicas",
+              "description": "behind a load balancer"
+            },
+            {
+              "label": "Don't know yet",
+              "description": "I will assume one instance and say so"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "clean-repo-ref-was-read",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [
+        "/repo/docker-compose.yml"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "repo",
+              "ref": "docker-compose.yml:14"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "I can't rank these yet. How many API instances will run?",
+          "options": [
+            {
+              "label": "One instance",
+              "description": "a single process or box"
+            },
+            {
+              "label": "Several replicas",
+              "description": "behind a load balancer"
+            },
+            {
+              "label": "Don't know yet",
+              "description": "I will assume one instance and say so"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-assumption-not-in-ask",
+    "expect_violations": [
+      "ASSUMPTION_DISCLOSED"
+    ],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "I can't rank these yet. How many API instances will run?",
+          "options": [
+            {
+              "label": "One instance",
+              "description": "a single process or box"
+            },
+            {
+              "label": "Several replicas",
+              "description": "behind a load balancer"
+            },
+            {
+              "label": "Don't know yet",
+              "description": "I will assume one instance and say so"
+            }
+          ]
+        },
+        {
+          "type": "rubric",
+          "recommended": "In-memory LRU",
+          "separated": false,
+          "reasons": [
+            "assumed-requirement"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "In-memory LRU",
+            "Redis",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            },
+            {
+              "id": "instances",
+              "text": "one instance, cold cache after restart is fine",
+              "quote": "Don't know yet",
+              "kind": "soft",
+              "source": "assumed"
+            }
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": true
+        },
+        {
+          "type": "ask",
+          "question": "Which cache? Excluded: Managed SaaS (must be self-hosted).",
+          "options": [
+            {
+              "label": "In-memory LRU (Recommended)",
+              "description": "nothing to operate, per-process"
+            },
+            {
+              "label": "Redis",
+              "description": "shared, one more service to run"
+            },
+            {
+              "label": "File-based",
+              "description": "no service, disk on the hot path"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "In-memory LRU",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "In-memory LRU"
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-invented-requirement-to-rank",
+    "expect_violations": [
+      "REQUIREMENT_GROUNDED"
+    ],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "I can't rank these yet. How many API instances will run?",
+          "options": [
+            {
+              "label": "One instance",
+              "description": "a single process or box"
+            },
+            {
+              "label": "Several replicas",
+              "description": "behind a load balancer"
+            },
+            {
+              "label": "Don't know yet",
+              "description": "I will assume one instance and say so"
+            }
+          ]
+        },
+        {
+          "type": "rubric",
+          "recommended": "In-memory LRU",
+          "separated": true,
+          "reasons": [],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "In-memory LRU",
+            "Redis",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            },
+            {
+              "id": "lat",
+              "text": "sub-millisecond reads",
+              "quote": "we need sub-millisecond reads",
+              "kind": "soft",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "question": "Which cache? Lead rests on: fit of In-memory LRU. Excluded: Managed SaaS (must be self-hosted).",
+          "options": [
+            {
+              "label": "In-memory LRU (Recommended)",
+              "description": "nothing to operate, per-process"
+            },
+            {
+              "label": "Redis",
+              "description": "shared, one more service to run"
+            },
+            {
+              "label": "File-based",
+              "description": "no service, disk on the hot path"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "In-memory LRU",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "In-memory LRU"
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-rank-after-undetermined-without-asking",
+    "expect_violations": [
+      "RESCORE_TO_DISMISS"
+    ],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": null,
+          "separated": false,
+          "reasons": [
+            "missing-context"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "rubric",
+          "recommended": "In-memory LRU",
+          "separated": true,
+          "reasons": [],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "In-memory LRU",
+            "Redis",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "question": "Which cache? Excluded: Managed SaaS (must be self-hosted).",
+          "options": [
+            {
+              "label": "In-memory LRU (Recommended)",
+              "description": "nothing to operate, per-process"
+            },
+            {
+              "label": "Redis",
+              "description": "shared, one more service to run"
+            },
+            {
+              "label": "File-based",
+              "description": "no service, disk on the hot path"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "In-memory LRU",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "In-memory LRU"
+        }
+      ]
+    }
   }
 ]

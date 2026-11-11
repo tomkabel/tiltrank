@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-11
+
+Answers the 2026-11-11 critique of the README demo ([`docs/review-2026-11-11/`](docs/review-2026-11-11/)).
+
+### Changed (breaking: payload)
+- **`fit_to_constraints` may differ across survivors only if a `soft` requirement is stated.** A hard requirement every survivor passes cannot separate them on fit. Payloads with a fit spread and no `requirements` now fail with `error: fit_to_constraints differs across survivors but no soft requirement is stated`. Migration: add `"requirements": [{"id", "text", "quote", "kind": "hard"|"soft", "source": "user"|"repo"|"assumed", "ref"?}]` to the payload, and `"constraints": {"<hard id>": "pass"|"fail"|"unknown"}` to each option. `feasible: false` stays as a shorthand for one minor version.
+- **`Undetermined` is computed, not declared.** When fit is tied across survivors, or any survivor has an `unknown` hard constraint, the band is `Undetermined` with reason `missing-context`, `recommended` is `null`, and no order is printed. SKILL.md step 1 is now "Frame, then clarify": at most 3 closed clarifying questions, one round, answers become requirements. A "Don't know yet" answer becomes `source: "assumed"` and caps the band at `Contested` (reason `assumed-requirement`).
+- **Default output has no totals.** Each option line shows anchor levels as words (`fit high · reversibility med · …`), the first line stands alone (`tiltrank: 3 ranked · 1 excluded (…) · Contested · ESCALATE not-separable`), and totals move behind `--table`. `--json` is unchanged apart from the new `rests_on`, `undetermined` and `missing` fields.
+- **Single-rating probe.** Giving the top option the runner-up's rating on one criterion at a time; any flip prints `lead rests on: <criterion> of <option>` and caps the band at `Contested`. The resampler alone rated the demo payload `robust`; the probe shows its lead rested on one unsupported `fit` rating.
+- The README hero image is gone until it can be generated from a committed payload. The SKILL.md payload example no longer shows a confident lead, and the shape template carries no domain claims.
+
+### Added
+- `check_trace.py --live --benchmark`: a held-out benchmark (`eval/benchmark.json`, 12 cases with cited keys) graded on pooled Wilson bounds, the escalation rate on specified cases, and the single-box failure count. `eval/baseline.json` records the pre-change engine.
+- Checker rules `NO_SCORE_IN_TRANSCRIPT`, `REQUIREMENT_GROUNDED`, `NO_MENU_WHEN_UNDETERMINED`, `ASSUMPTION_DISCLOSED`, each with good and broken fixtures. Live traces carry `driver`, `assistant_text`, `user_messages` and `files_read`.
+- The decision log records `question`, `requirements` (with sources and quotes), per-option `constraints` and `rests_on`.
+- `test_skill_contract.py` holds SKILL.md to 543 lines, runs the payload example and fails if it is `Separated`, and rejects dev-set domain nouns in the example or template.
+- Dev scenarios `underspecified-cache`, `cache-single-box-stated`, `cache-multi-replica-stated` with keys.
+
 ## [Unreleased]
 
 ### Fixed

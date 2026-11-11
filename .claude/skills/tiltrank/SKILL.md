@@ -2,7 +2,7 @@
 name: tiltrank
 description: Choose between options with a scored, ask-first rubric. Use when the user hands you several candidate options and wants a reasoned, defensible pick — a transparent multi-criteria ranking, an overridable default, and an escalation path for close or high-stakes calls.
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/rubric.py:*)
-version: 0.3.0
+version: 0.4.0
 author: Tom Kristian Abel (tkabel), Hermes Agent
 license: MPL-2.0
 platforms: [linux, macos, windows]
@@ -46,14 +46,31 @@ number, and never call it confidence.
 
 ## Workflow
 
-### 1. Frame before you score
+### 1. Frame, then clarify
 
 Cheap and it dominates everything downstream. Before ranking anything:
 
-- **Separate hard constraints from preferences.** A hard constraint is
-  pass/fail: "must be self-hosted", "must not add a paid dependency", "must ship
-  Friday". These are *not* criteria to be weighed — an option that fails one is
-  excluded, not penalised.
+- **Write the requirements down, with their source.** The payload carries
+  `requirements: [{id, text, quote, kind, source, ref?}]`. `kind` is `hard`
+  (pass/fail: "must be self-hosted", "must ship Friday") or `soft` (a stated
+  preference). `source` is `user`, `repo` or `assumed`. **Every `quote` is the
+  user's own words, and every `ref` names a line you read** (`path:line`, required
+  for `repo`). Each option then carries `constraints: {<hard id>: pass|fail|unknown}`;
+  a `fail` excludes it with the requirement's text, and a hard requirement an
+  option does not mention is `unknown`, not passed. Hard requirements are *not*
+  criteria to be weighed — an option that fails one is excluded, not penalised.
+- **The script decides whether a ranking exists.** `fit_to_constraints` may
+  differ across survivors only if a `soft` requirement is stated: a hard
+  requirement every survivor passes cannot separate them on fit. When fit is tied,
+  or a survivor's hard constraint is `unknown`, the band is `Undetermined`
+  (`ESCALATE missing-context`), there is no order and no recommendation, and the
+  output says what is missing. **On `Undetermined`, the ask is at most 3 closed
+  clarifying questions, not the option menu** ("One instance / Several replicas /
+  Don't know yet"). Each answer becomes a requirement with `source: "user"`, then
+  re-run. "Don't know yet" becomes `source: "assumed"`: the ranking it produces
+  is capped at `Contested` (`ESCALATE assumed-requirement`), and **every assumed
+  requirement is stated in the ask body.** One clarify round per decision. A
+  second `Undetermined` goes to the user as "can't rank without X"; never loop.
 - **Challenge the option set.** If the list is a false dichotomy, is missing an
   obvious candidate, or the real answer is "none of these", say so before
   scoring. Frame and alternatives first, scores later. If you add a
@@ -161,23 +178,28 @@ cannot be copy-pasted as a real payload:
 
 ```bash
 python3 <skill-dir>/scripts/rubric.py <<'JSON'
-{"choices": [
-  {"label": "Option A", "evidence": 60, "scores": {"fit_to_constraints": 60, "reversibility": 90, "precedent": null}},
-  {"label": "Option B", "evidence": 20, "scores": {"fit_to_constraints": 60, "reversibility": 60, "precedent": 60}},
-  {"label": "Option C", "feasible": false, "note": "violates a stated hard constraint"}
-]}
+{"question": "{the user's question, verbatim}",
+ "requirements": [
+  {"id": "r1", "text": "{the hard need}", "quote": "{the user's words}", "kind": "hard", "source": "user"},
+  {"id": "r2", "text": "{the stated preference}", "quote": "{the user's words}", "kind": "soft", "source": "user"}
+ ],
+ "choices": [
+  {"label": "Option A", "evidence": 20, "constraints": {"r1": "pass"}, "scores": {"fit_to_constraints": 90, "reversibility": 90, "precedent": null}},
+  {"label": "Option B", "evidence": 60, "constraints": {"r1": "pass"}, "scores": {"fit_to_constraints": 60, "reversibility": 90, "precedent": 60}},
+  {"label": "Option C", "evidence": 60, "constraints": {"r1": "fail"}, "scores": {"fit_to_constraints": 60, "reversibility": 60, "precedent": 60}}
+ ]}
 JSON
 ```
 
 This example comes back `Contested` with `ESCALATE — not-separable,
-unverified-evidence`: fit is tied, one rating is `null`, and the lead was never
-checked. That is the normal shape of a first run, not a failure.
+unverified-evidence`: the lead rests on one rating, one rating is `null`, and
+the lead was never checked. That is the normal shape of a first run, not a
+failure. Drop the `soft` requirement and it comes back `Undetermined`.
 
-Set `"feasible": false` with a `note` for any option that fails a hard
-constraint. It is reported but never ranked, so it cannot be compensated back
-into contention by scoring well elsewhere. `feasible` must be the JSON boolean
-`true` or `false`: the script rejects `"false"`, `0`, `null` and `"no"` rather
-than guess which way you meant them. Requires Python >= 3.10, stdlib only.
+`"feasible": false` with a `note` is the shorthand for an option that fails a
+hard constraint you did not list. `feasible` must be the JSON boolean `true` or
+`false`: the script rejects `"false"`, `0`, `null` and `"no"` rather than guess
+which way you meant them. Requires Python >= 3.10, stdlib only.
 
 The script's first line stands alone (`tiltrank: 3 ranked · 1 excluded (…) ·
 Contested · ESCALATE not-separable`), then each option's levels as words, a
@@ -204,10 +226,13 @@ says `lead holds on every single rating`. Do not talk yourself past either a
 Escalate if **any** of these hold:
 
 - **The script said so.** Any `ESCALATE` line. Its reasons are `not-separable`
-  (the lead does not survive noise), `weak-field` (nothing here is good — go back
-  to framing; judged on the conservative score, and raised even when only one
-  option is feasible), and `unverified-evidence` (your top pick rests on something you
-  never checked). If the reason is unverified-evidence, escalation is mandatory and the ONLY acceptable escalation is a falsifying tool call (option 1 below). A second opinion without new evidence is not a valid response to "you never looked."
+  (the lead does not survive noise, or rests on one rating), `weak-field`
+  (nothing here is good — go back to framing; judged on the conservative score,
+  and raised even when only one option is feasible), `unverified-evidence` (your
+  top pick rests on something you never checked), `assumed-requirement` (the
+  ranking rests on an answer the user did not give), and `missing-context`
+  (`Undetermined`: answered by the clarify round in step 1, not by a review).
+  If the reason is unverified-evidence, escalation is mandatory and the ONLY acceptable escalation is a falsifying tool call (option 1 below). A second opinion without new evidence is not a valid response to "you never looked."
 - **The user asked.** Judge this from what they actually said. "Can you get
   someone else to weigh in?", "I'm not convinced", "double-check this" all
   count. Do not pattern-match a fixed phrase list — you are the language model;
@@ -456,14 +481,9 @@ The rubric is often a step inside a larger skill rather than the whole task. Two
   the ranking it just recorded, so a batch that silently dropped or mismatched a payload looks exactly
   like a batch that worked. Count the lines, confirm one per decision, and check the `diverged` flags
   against the picks you actually saw — the log is the record and the console is not.
-- **A fork whose real discriminator is unstated user intent is not a scorable option set.** When the
-  missing input exists only in the user's head (which product, which audience, whose goal), every
-  candidate you author is scored against your own guess at that intent, and the run escalates
-  `not-separable` by construction — the evidence column cannot separate guesses. Frame it instead as
-  evidence-grounded candidates (each traceable to something you actually read), authorship disclosed
-  in the body, the free-text `Other` row named as the *expected* answer, and any option that a
-  checkable fact disqualifies shown with that fact attached rather than quietly dropped. One scored
-  question plus one open elicitation question in the same form beats three rounds of re-ranking.
+- **A fork whose real discriminator is unstated user intent comes back `Undetermined`.** That is
+  the clarify round in step 1, not a reason to author a requirement: the eval checks every quote
+  against the transcript. One clarifying question plus one scored question beats three re-rankings.
 - **Re-framing is escalation only when new evidence changed the option set.** Re-labelling the same
   candidates and re-running the script is the ESCALATE-removal anti-pattern wearing a different hat.
   The productive move is a probe that could kill the top option — read the governing decision doc,
@@ -486,6 +506,8 @@ The rubric is often a step inside a larger skill rather than the whole task. Two
 - **Running the full review every time.** It is for close or high-stakes calls.
   Most picks are one pass.
 - **Treating a hard constraint as a low score.** Exclude it; don't dock points.
+- **Inventing a requirement to get past `Undetermined`.** A `quote` that is not
+  in the transcript is the demo's `fit 90` with a paper trail.
 - **Deciding for the user and reporting the decision**, when operator input was
   the whole point.
 - **Adding personas to buy confidence.** Four voices from one model is one
@@ -500,39 +522,15 @@ The scripts are the easy part; the protocol is what breaks. Both are checked
 ```bash
 python3 <skill-dir>/scripts/test_rubric.py                       # validation, gating, ranking
 python3 <skill-dir>/scripts/eval/check_trace.py                  # protocol assertions (fixtures)
-python3 <skill-dir>/scripts/eval/check_trace.py --live --repeat 3
-python3 <skill-dir>/scripts/eval/check_trace.py --live --driver hermes
-python3 <skill-dir>/scripts/eval/check_trace.py --live --driver pi
+python3 <skill-dir>/scripts/eval/check_trace.py --live --driver claude|hermes|pi [--repeat 3] [--benchmark]
 ```
 
-`check_trace.py` asserts what actually matters: a rubric run before any ask, ≤4 options per call, no
-score-shaped number in any rendered text, `(Recommended)` matching the ranking,
-escalation happening exactly when the rubric's reasons say it should, excluded
-options never offered, `Other` answers and hybrid picks re-scored before use,
-a pre-authorised decision logged as a pick rather than a timeout, injection-shaped
-candidates surfaced and never executed, and the final action matching the user's
-pick rather than the recommendation. On a live run the injection finding is read
-from the decision log `rubric.py` writes, not from the JSON block the agent
-narrates, and a shell tool that runs the payload fails even if the narration is
-clean. The assertions are harness-neutral — they
-read the decision log and the composed ask, never a harness-specific event
-shape. `--driver claude|hermes|pi` selects the live driver; the protocol-break
-gate, Wilson interval, and `--repeat` self-agreement logic are identical across
-drivers.
-
-Two rules in this file are operator guidance and are **not** machine-checked:
-one decision per form, and the `[ASSUMPTION]` tag. No harness exposes the ask
-form or the reply prose to the checker, and a fixture that graded a
-self-reported form would be the same failure mode the injection check stopped
-trusting.
-
-`--live` drives real headless sessions. Note its ceiling: **no harness exposes
-its interactive ask tool headlessly** (`AskUserQuestion` is absent from
-`claude -p`; `clarify` cannot render without a TTY; the pi extension's UI
-likewise), so a live run cannot observe a real ask. It gets ground truth on the
-step that actually varies — the sub-scores, read from the decision log the
-script itself writes — and lints the ask as a composed artifact. `--repeat`
-measures how often the same scenario produces the same recommendation.
+`check_trace.py` reads the decision log `rubric.py` writes (ground truth) and
+the composed ask (self-reported: no harness exposes its ask tool headlessly), and
+fails a trace on every rule in its `RULES` table — each one quotes the sentence
+in this file that states it. `--benchmark` grades runs against a held-out key.
+Two rules here are operator guidance and not machine-checked: one decision per
+form, and the `[ASSUMPTION]` tag.
 
 ## Related Skills
 

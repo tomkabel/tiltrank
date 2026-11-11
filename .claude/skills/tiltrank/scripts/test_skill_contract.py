@@ -207,7 +207,9 @@ def test_payload_example_does_not_show_a_confident_lead() -> None:
     from rubric import rank_choices  # pyright: ignore[reportMissingImports]
 
     payload = _example_payload()
-    verdict = rank_choices(payload["choices"], payload.get("weights"))
+    verdict = rank_choices(
+        payload["choices"], payload.get("weights"), payload.get("requirements")
+    )
     assert verdict.band != "Separated", f"example comes back {verdict.band}"
     assert verdict.escalate, "the example should show what an ESCALATE line looks like"
 
