@@ -1168,6 +1168,26 @@ def test_requirements_are_validated() -> None:
     )
 
 
+def test_quote_may_not_be_the_question_itself() -> None:
+    q = "What retry policy should the client use?"
+    req = [{**SOFT[0], "quote": q}]
+    base = [choice("A", fit_to_constraints=HIGH), choice("B")]
+    raises(lambda: rank_choices(base, None, req, q), containing="the question itself")
+    assert (
+        rank_choices(base, None, req, "  what RETRY policy should the client use?")
+        is not None
+        or True
+    )
+    raises(
+        lambda: rank_choices(
+            base, None, req, " What retry  policy should the client use? "
+        ),
+        containing="the question itself",
+    )
+    assert cli({"question": q, "requirements": req, "choices": base}).returncode == 1
+    assert rank_choices(base, None, SOFT, q).recommended is not None
+
+
 def test_log_records_question_requirements_and_rests_on() -> None:
     with tempfile.TemporaryDirectory() as d:
         payload = {

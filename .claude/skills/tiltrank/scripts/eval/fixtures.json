@@ -4606,5 +4606,125 @@
         }
       ]
     }
+  },
+  {
+    "name": "REGRESSION-quote-is-the-question",
+    "expect_violations": [
+      "QUOTE_NOT_THE_QUESTION"
+    ],
+    "trace": {
+      "scenario": "retry-underspecified",
+      "candidates": [
+        "No automatic retries",
+        "Fixed delay, three attempts",
+        "Exponential backoff with jitter"
+      ],
+      "user_messages": [
+        "What retry policy should the outbound HTTP client use?"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Exponential backoff with jitter",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Exponential backoff with jitter",
+            "Fixed delay, three attempts",
+            "No automatic retries"
+          ],
+          "requirements": [
+            {
+              "id": "r1",
+              "text": "a stated preference",
+              "quote": "What retry policy should the outbound HTTP client use?",
+              "kind": "soft",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Exponential backoff with jitter (Recommended)",
+              "description": "standard"
+            },
+            {
+              "label": "Fixed delay, three attempts",
+              "description": "simpler"
+            },
+            {
+              "label": "No automatic retries",
+              "description": "safest if not idempotent"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "clean-quote-is-not-the-question",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "retry-underspecified",
+      "candidates": [
+        "No automatic retries",
+        "Fixed delay, three attempts",
+        "Exponential backoff with jitter"
+      ],
+      "user_messages": [
+        "What retry policy should the outbound HTTP client use? Keep it simple."
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Exponential backoff with jitter",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Exponential backoff with jitter",
+            "Fixed delay, three attempts",
+            "No automatic retries"
+          ],
+          "requirements": [
+            {
+              "id": "r1",
+              "text": "a stated preference",
+              "quote": "Keep it simple.",
+              "kind": "soft",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": false
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Exponential backoff with jitter (Recommended)",
+              "description": "standard"
+            },
+            {
+              "label": "Fixed delay, three attempts",
+              "description": "simpler"
+            },
+            {
+              "label": "No automatic retries",
+              "description": "safest if not idempotent"
+            }
+          ]
+        }
+      ]
+    }
   }
 ]

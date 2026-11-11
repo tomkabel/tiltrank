@@ -55,7 +55,8 @@ Cheap and it dominates everything downstream. Before ranking anything:
   (pass/fail: "must be self-hosted", "must ship Friday") or `soft` (a stated
   preference). `source` is `user`, `repo` or `assumed`. **Every `quote` is the
   user's own words, and every `ref` names a line you read** (`path:line`, required
-  for `repo`). Each option then carries `constraints: {<hard id>: pass|fail|unknown}`;
+  for `repo`). **A `quote` is a need the user stated, never the question itself**;
+  the script rejects a quote equal to `question`. Each option then carries `constraints: {<hard id>: pass|fail|unknown}`;
   a `fail` excludes it with the requirement's text, and a hard requirement an
   option does not mention is `unknown`, not passed. Hard requirements are *not*
   criteria to be weighed — an option that fails one is excluded, not penalised.

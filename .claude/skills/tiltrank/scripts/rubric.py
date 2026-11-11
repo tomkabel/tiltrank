@@ -515,6 +515,7 @@ def rank_choices(
     choices: Sequence[Mapping[str, object]],
     weights: Mapping[str, float] | None = None,
     requirements: object = None,
+    question: object = None,
 ) -> Verdict:
     """Rank feasible choices; gate infeasible ones out *before* weighting.
 
@@ -530,6 +531,14 @@ def rank_choices(
     """
     w = _validate_weights(weights if weights is not None else DEFAULT_WEIGHTS)
     reqs = _validate_requirements(requirements)
+    q = " ".join(str(question or "").split()).casefold()
+    for r in reqs:
+        if q and " ".join(r["quote"].split()).casefold() == q:
+            raise ValueError(
+                f"requirement {r['id']!r}: its quote is the question itself. A quote is a "
+                "need the user stated; the question states no preference, so leave it "
+                "out and let the script report Undetermined."
+            )
     hard_ids = [r["id"] for r in reqs if r["kind"] == "hard"]
     hard_text = {r["id"]: r["text"] for r in reqs if r["kind"] == "hard"}
     if not isinstance(choices, list):
@@ -984,7 +993,10 @@ def main(argv: list[str] | None = None) -> int:
         if not isinstance(payload, dict) or "choices" not in payload:
             raise ValueError('stdin must be a JSON object with a "choices" list')
         verdict = rank_choices(
-            payload["choices"], payload.get("weights"), payload.get("requirements")
+            payload["choices"],
+            payload.get("weights"),
+            payload.get("requirements"),
+            payload.get("question"),
         )
         decision_fields(payload, verdict)  # a bad pick fails even without --log
     except (KeyError, TypeError, ValueError) as exc:

@@ -125,6 +125,7 @@ RULES: dict[str, str] = {
     "REQUIREMENT_GROUNDED": "Every `quote` is the user's own words, and every `ref` names a line you read",
     "NO_MENU_WHEN_UNDETERMINED": "On `Undetermined`, the ask is at most 3 closed clarifying questions, not the option menu",
     "ASSUMPTION_DISCLOSED": "every assumed requirement is stated in the ask body.",
+    "QUOTE_NOT_THE_QUESTION": "A `quote` is a need the user stated, never the question itself",
     "ADR_MATCHES_PICK": "Its Decision section names the user's pick, and every excluded option appears",
 }
 
@@ -417,12 +418,18 @@ def check(trace: dict) -> list[str]:
     # actually read. Fails closed when the trace cannot show either.
     user_text = _norm(" \n ".join(trace.get("user_messages") or []))
     files_read = {_norm(f) for f in trace.get("files_read") or []}
+    whole_messages = {_norm(m) for m in trace.get("user_messages") or []}
     for rubric in rubrics:
         for req in rubric.get("requirements") or []:
             if req.get("source") == "user":
                 quote = _norm(req.get("quote"))
                 if not quote or quote not in user_text:
                     bad.append("REQUIREMENT_GROUNDED")
+                # Grounded, but not a requirement: the whole message quoted
+                # back as a `soft` need is how 4/5 runs of
+                # retry-underspecified ranked a context-free case.
+                if quote and quote in whole_messages:
+                    bad.append("QUOTE_NOT_THE_QUESTION")
             elif req.get("source") == "repo":
                 path = _norm(str(req.get("ref") or "").rsplit(":", 1)[0])
                 if not path or not any(
