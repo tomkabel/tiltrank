@@ -4323,7 +4323,7 @@
       ],
       "adr": {
         "path": "docs/decisions/0003-api-cache.md",
-        "text": "# 0003: API cache\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nIn-memory LRU. Diverged from the recommendation (Redis).\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
+        "text": "# 0003. API cache\n\nDate: 2026-11-12\n\n## Status\nAccepted\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nIn-memory LRU. Diverged from the recommendation (Redis).\n\n## Consequences\nOne process holds the cache; a restart empties it.\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
       }
     }
   },
@@ -4391,7 +4391,7 @@
       ],
       "adr": {
         "path": "docs/decisions/0003-api-cache.md",
-        "text": "# 0003: API cache\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nRedis, as recommended.\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
+        "text": "# 0003. API cache\n\nDate: 2026-11-12\n\n## Status\nAccepted\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nRedis, as recommended.\n\n## Consequences\nOne process holds the cache; a restart empties it.\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
       }
     }
   },
@@ -4459,7 +4459,7 @@
       ],
       "adr": {
         "path": "docs/decisions/0003-api-cache.md",
-        "text": "# 0003: API cache\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n\n## Decision\nIn-memory LRU. Diverged from the recommendation (Redis).\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
+        "text": "# 0003. API cache\n\nDate: 2026-11-12\n\n## Status\nAccepted\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n\n## Decision\nIn-memory LRU. Diverged from the recommendation (Redis).\n\n## Consequences\nOne process holds the cache; a restart empties it.\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
       }
     }
   },
@@ -4528,7 +4528,7 @@
           "name": "Write",
           "input": {
             "file_path": "/repo/docs/decisions/0003-api-cache.md",
-            "content": "# 0003: API cache\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nIn-memory LRU. Diverged from the recommendation (Redis).\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
+            "content": "# 0003. API cache\n\nDate: 2026-11-12\n\n## Status\nAccepted\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nIn-memory LRU. Diverged from the recommendation (Redis).\n\n## Consequences\nOne process holds the cache; a restart empties it.\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
           }
         }
       ]
@@ -4601,7 +4601,80 @@
           "name": "Write",
           "input": {
             "file_path": "/repo/docs/decisions/0003-api-cache.md",
-            "content": "# 0003: API cache\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nRedis, as recommended.\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
+            "content": "# 0003. API cache\n\nDate: 2026-11-12\n\n## Status\nAccepted\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nRedis, as recommended.\n\n## Consequences\nOne process holds the cache; a restart empties it.\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-adr-without-status-date-consequences",
+    "expect_violations": [
+      "ADR_FORMAT"
+    ],
+    "trace": {
+      "scenario": "clear-winner",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "Redis",
+          "separated": false,
+          "reasons": [
+            "not-separable"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "Redis",
+            "In-memory LRU",
+            "File-based",
+            "Managed SaaS"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": true
+        },
+        {
+          "type": "ask",
+          "options": [
+            {
+              "label": "Redis (Recommended)",
+              "description": "shared, one more service"
+            },
+            {
+              "label": "In-memory LRU",
+              "description": "per-process, nothing to run"
+            },
+            {
+              "label": "File-based",
+              "description": "disk on the hot path"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "In-memory LRU",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "In-memory LRU"
+        }
+      ],
+      "tool_calls": [
+        {
+          "name": "Write",
+          "input": {
+            "file_path": "/repo/docs/decisions/0003-api-cache.md",
+            "content": "# 0003: API cache\n\n## Context\nSix replicas were not stated; the user said one instance.\n\n## Requirements (quoted)\n- \"It has to be self-hosted\" (hard, user)\n\n## Options considered\n- Redis: lead rests on: fit_to_constraints of Redis\n- In-memory LRU\n- File-based\n- Managed SaaS: excluded, fails: must be self-hosted\n\n## Decision\nIn-memory LRU. Diverged from the recommendation (Redis).\n\n## Assumptions\nNone.\n\n## What would make this wrong\nA second replica.\n"
           }
         }
       ]

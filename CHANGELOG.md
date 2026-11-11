@@ -21,6 +21,7 @@ Answers the 2026-11-11 critique of the README demo ([`docs/review-2026-11-11/`](
 - Checker rules `NO_SCORE_IN_TRANSCRIPT`, `REQUIREMENT_GROUNDED`, `NO_MENU_WHEN_UNDETERMINED`, `ASSUMPTION_DISCLOSED`, each with good and broken fixtures. Live traces carry `driver`, `assistant_text`, `user_messages` and `files_read`.
 - The decision log records `question`, `requirements` (with sources and quotes), per-option `constraints` and `rests_on`.
 - `test_skill_contract.py` holds SKILL.md to 543 lines, runs the payload example and fails if it is `Separated`, and rejects dev-set domain nouns in the example or template.
+- ADRs under `docs/decisions/` follow Nygard form: `# NNNN. Title`, a `Date:` line, Status and Consequences sections alongside the existing ones. Rule `ADR_FORMAT` fails an ADR missing any of the three; `ADR_MATCHES_PICK` still checks the Decision section and excluded options.
 - Dev scenarios `underspecified-cache`, `cache-single-box-stated`, `cache-multi-replica-stated` with keys.
 
 ### Benchmark (held-out, claude-sonnet-5-5, `--repeat 5`, 10 on the single-box cases; `eval/baseline.json` vs `eval/results-0.4.0.json`)

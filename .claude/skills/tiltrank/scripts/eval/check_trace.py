@@ -128,9 +128,15 @@ RULES: dict[str, str] = {
     "QUOTE_NOT_THE_QUESTION": "A `quote` is a need the user stated, never the question itself",
     "ASSUMED_ONLY_AFTER_CLARIFY": "An assumed requirement exists only as the answer to a clarify round",
     "ADR_MATCHES_PICK": "Its Decision section names the user's pick, and every excluded option appears",
+    "ADR_FORMAT": "It carries a Date line and Status and Consequences sections.",
 }
 
 ADR_PATH_RE = re.compile(r"(^|/)docs/decisions/\d{4}-[^/]+\.md$")
+# Nygard ADR fields, matched against _norm()ed (casefolded, one-line) text.
+ADR_DATE_RE = re.compile(r"\bdate: \d{4}-\d{2}-\d{2}\b")
+ADR_STATUS_RE = re.compile(
+    r"## status (proposed|accepted|rejected|deprecated|superseded)\b"
+)
 
 UNDETERMINED_REASON = "missing-context"
 
@@ -493,6 +499,12 @@ def check(trace: dict) -> list[str]:
             bad.append("ADR_MATCHES_PICK")
         if any(_norm(x) not in text for x in excluded_all):
             bad.append("ADR_MATCHES_PICK")
+        if not (
+            ADR_DATE_RE.search(text)
+            and ADR_STATUS_RE.search(text)
+            and "## consequences" in text
+        ):
+            bad.append("ADR_FORMAT")
 
     return sorted(set(bad))
 

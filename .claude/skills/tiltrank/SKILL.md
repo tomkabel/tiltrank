@@ -111,8 +111,7 @@ research it. It is carried separately and gates escalation instead.
 
 **Score by picking a band, and pass that band's number.** The anchors define
 three levels. The script rejects anything else — `87` claims resolution no
-anchor can justify, and false precision at the input lands straight in the sort
-order.
+anchor can justify, and false precision at the input lands in the sort order.
 
 | pass | band | |
 |---|---|---|
@@ -420,12 +419,13 @@ autonomous runs. The skill must handle it without inventing a user decision.
   ranking is not authorisation.
 - **Write an ADR for decisions that meet step 3's blast-radius bar, or when the
   user asks.** With your file tool, `docs/decisions/NNNN-<slug>.md` at the next
-  free number, never overwriting, under the headings Context, Requirements
-  (quoted), Options considered (exclusion reason or the `lead rests on` line),
-  Decision (the user's pick, and whether it diverged), Assumptions, What would
-  make this wrong. **Its Decision section names the user's pick, and every
-  excluded option appears**. Small decisions get no ADR: a directory of trivial
-  ADRs is its own graveyard. The JSONL log stays the machine record.
+  free number, never overwriting, in Nygard form: `# NNNN. <Title>`, a `Date:`
+  line, then headings Status (`Accepted`), Context, Requirements (quoted),
+  Options considered (exclusion reason or `lead rests on` line), Decision (the
+  user's pick, and whether it diverged), Consequences, Assumptions, What would
+  make this wrong. **It carries a Date line and Status and Consequences
+  sections. Its Decision section names the user's pick, and every excluded
+  option appears**. Small decisions get no ADR; the JSONL log is the record.
 - **Log it.** Re-run the script with the same payload plus the user's pick
   (same `<skill-dir>` resolution as the scoring run):
 
