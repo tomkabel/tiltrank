@@ -1173,11 +1173,6 @@ def test_quote_may_not_be_the_question_itself() -> None:
     req = [{**SOFT[0], "quote": q}]
     base = [choice("A", fit_to_constraints=HIGH), choice("B")]
     raises(lambda: rank_choices(base, None, req, q), containing="the question itself")
-    assert (
-        rank_choices(base, None, req, "  what RETRY policy should the client use?")
-        is not None
-        or True
-    )
     raises(
         lambda: rank_choices(
             base, None, req, " What retry  policy should the client use? "
