@@ -1215,6 +1215,94 @@ def test_log_records_question_requirements_and_rests_on() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# live trace assembly: what the log decided, and when it ran
+# --------------------------------------------------------------------------- #
+
+MENU = {
+    "type": "ask",
+    "options": [{"label": "Redis (Recommended)"}, {"label": "Memcached"}],
+}
+
+
+def _verdict(recommended: str | None, reasons: list[str] | None = None) -> dict:
+    """One rubric.py log line, as the live driver reads it."""
+    return {
+        "type": "rubric",
+        "recommended": recommended,
+        "separated": recommended is not None,
+        "reasons": reasons or [],
+        "excluded": [],
+        "options_scored": ["Redis", "Memcached"],
+    }
+
+
+def test_live_rubric_runs_keep_the_position_the_agent_reported() -> None:
+    """The log says what the script returned; the agent says when it ran.
+
+    Flattening every verified run to the front and the back of the trace
+    moved a re-run to the end, so the menu that followed it was judged
+    against the Undetermined verdict from before the clarify round.
+    """
+    from check_trace import _assemble_events  # pyright: ignore[reportMissingImports]
+
+    reported = [
+        {"type": "rubric"},
+        {"type": "ask", "options": [{"label": "How many replicas?"}]},
+        {"type": "answer", "label": "How many replicas?"},
+        {"type": "rubric"},
+        MENU,
+        {"type": "answer", "label": "Redis (Recommended)"},
+        {"type": "action", "label": "Redis (Recommended)"},
+    ]
+    events = _assemble_events(
+        reported, [_verdict(None, ["missing-context"]), _verdict("Redis")]
+    )
+    assert [e["type"] for e in events] == [
+        "rubric",
+        "ask",
+        "answer",
+        "rubric",
+        "ask",
+        "answer",
+        "action",
+    ]
+    # The re-run stays between the clarify round and the menu it justified,
+    # so the menu is judged against it and not the Undetermined run.
+    assert check({"candidates": ["Redis", "Memcached"], "events": events}) == []
+
+
+def test_live_rubric_runs_the_agent_did_not_report_are_appended() -> None:
+    """A run the log recorded is a run, wherever the agent placed it."""
+    from check_trace import _assemble_events  # pyright: ignore[reportMissingImports]
+
+    events = _assemble_events(
+        [{"type": "rubric"}, MENU], [_verdict("Redis"), _verdict("Memcached")]
+    )
+    assert [e["type"] for e in events] == ["rubric", "ask", "rubric"]
+    assert events[-1]["recommended"] == "Memcached"
+
+
+def test_a_narrated_run_the_log_does_not_have_is_dropped() -> None:
+    """The agent does not get to narrate the step we can measure."""
+    from check_trace import _assemble_events  # pyright: ignore[reportMissingImports]
+
+    events = _assemble_events(
+        [{"type": "rubric"}, MENU, {"type": "rubric"}], [_verdict("Redis")]
+    )
+    assert [e["type"] for e in events] == ["rubric", "ask"]
+
+
+def test_a_trace_with_no_narrated_run_keeps_the_old_order() -> None:
+    """Nothing to anchor to: the first run goes first and the rest after."""
+    from check_trace import _assemble_events  # pyright: ignore[reportMissingImports]
+
+    events = _assemble_events([MENU], [_verdict("Redis"), _verdict("Memcached")])
+    assert [e["type"] for e in events] == ["rubric", "ask", "rubric"]
+    assert events[0]["recommended"] == "Redis"
+    assert events[-1]["recommended"] == "Memcached"
+
+
+# --------------------------------------------------------------------------- #
 # held-out benchmark (review 2026-11-11, phase 1)
 # --------------------------------------------------------------------------- #
 

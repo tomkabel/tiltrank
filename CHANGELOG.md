@@ -46,6 +46,7 @@ The miss was one case: `retry-underspecified` ranked 4/5 times by quoting the wh
 ## [Unreleased]
 
 ### Fixed
+- A live trace's rubric runs were flattened to the front and the back of the event list, so a re-run after a clarify round landed after the menu it justified and that menu was judged against the earlier `Undetermined` verdict (`NO_MENU_WHEN_UNDETERMINED` on a correct run). The log still decides *what* each run returned; the agent's own order now decides *where* it sits. Verified runs the agent did not report are appended, and a narrated run the log does not have is dropped.
 - The feasibility gate accepted any value except literal `false` as feasible. `feasible` must now be a JSON boolean; `"false"`, `0`, `null` and `"no"` are rejected.
 - A lone feasible option never raised `weak-field`. The weak-field check now runs for any field size and uses the conservative bound (`lo`), so an option propped up by unknown criteria escalates.
 - Stability depended on input order (0.51 to 0.56 across the 24 orders of one four-option set). Options are perturbed in label order, with ties broken the way the ranking breaks them.

@@ -1216,6 +1216,37 @@ def _verified_rubric_events(rubric_runs: list[dict]) -> list[dict]:
     ]
 
 
+def _assemble_events(reported: list[dict], verified: list[dict]) -> list[dict]:
+    """Interleave the verified rubric runs with the agent's own event order.
+
+    What a rubric run returned comes from the log: the agent does not get
+    to narrate the step we can measure. When it ran comes from the agent,
+    because that is the only record of its position relative to the ask. A
+    re-run after a clarify round must stay between that round's answer and
+    the menu it justified, or the menu is judged against the verdict that
+    came before the round.
+
+    Each reported rubric event is replaced in place by the next verified
+    run; verified runs the agent did not report are appended. With no
+    reported rubric event there is no position to keep, so the first
+    verified run goes first and the rest after the reported events.
+    """
+    if not any(e.get("type") == "rubric" for e in reported):
+        return verified[:1] + list(reported) + verified[1:]
+    out: list[dict] = []
+    used = 0
+    for event in reported:
+        if event.get("type") != "rubric":
+            out.append(event)
+            continue
+        if used < len(verified):
+            out.append(verified[used])
+            used += 1
+        # A narrated run with no log line is not a run: it is dropped.
+    out.extend(verified[used:])
+    return out
+
+
 _READ_TOOLS = {"read", "read_file", "readfile", "view", "file"}
 
 
@@ -1349,11 +1380,12 @@ def run_one(
     }
 
     # Replace the self-reported rubric events with the ones the script really
-    # emitted. The agent does not get to narrate the step we can measure.
+    # emitted. The agent does not get to narrate the step we can measure,
+    # but it does get to say where in the workflow the run happened.
     if rubric_runs:
-        verified = _verified_rubric_events(rubric_runs)
-        others = [e for e in trace["events"] if e.get("type") != "rubric"]
-        trace["events"] = verified[:1] + others + verified[1:]
+        trace["events"] = _assemble_events(
+            trace["events"], _verified_rubric_events(rubric_runs)
+        )
     return trace
 
 
