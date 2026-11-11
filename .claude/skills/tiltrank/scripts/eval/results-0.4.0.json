@@ -1,0 +1,288 @@
+{
+  "per_case": {
+    "broker-underspecified": {
+      "kind": "underspecified",
+      "hits": 4,
+      "graded": 4,
+      "runs": 4,
+      "tops": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "bands": [
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined"
+      ]
+    },
+    "bundler-underspecified": {
+      "kind": "underspecified",
+      "hits": 4,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        null,
+        "Vite",
+        null,
+        null,
+        null
+      ],
+      "bands": [
+        "Undetermined",
+        "Contested",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined"
+      ]
+    },
+    "retry-underspecified": {
+      "kind": "underspecified",
+      "hits": 1,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "Exponential backoff with jitter",
+        "Exponential backoff with jitter",
+        "Exponential backoff with jitter",
+        "Exponential backoff with jitter",
+        null
+      ],
+      "bands": [
+        "Separated",
+        "Separated",
+        "Separated",
+        "Separated",
+        "Undetermined"
+      ]
+    },
+    "primary-key-underspecified": {
+      "kind": "underspecified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "bands": [
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined"
+      ]
+    },
+    "broker-specified": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "Postgres SKIP LOCKED",
+        "Postgres SKIP LOCKED",
+        "Postgres SKIP LOCKED",
+        "Postgres SKIP LOCKED",
+        "Postgres SKIP LOCKED"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    },
+    "feature-flags-specified": {
+      "kind": "specified",
+      "hits": 4,
+      "graded": 4,
+      "runs": 4,
+      "tops": [
+        "Database table with an admin page",
+        "Database table with an admin page",
+        "Database table with an admin page",
+        "Database table with an admin page"
+      ],
+      "bands": [
+        "Contested",
+        "Contested",
+        "Contested",
+        "Contested"
+      ]
+    },
+    "session-store-single-instance": {
+      "kind": "specified",
+      "hits": 9,
+      "graded": 9,
+      "runs": 9,
+      "tops": [
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    },
+    "rate-limit-single-instance": {
+      "kind": "specified",
+      "hits": 10,
+      "graded": 10,
+      "runs": 10,
+      "tops": [
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    },
+    "bundler-specified": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "tsup",
+        "tsup",
+        "tsup",
+        "tsup",
+        "tsup"
+      ],
+      "bands": [
+        "Separated",
+        "Separated",
+        "Separated",
+        "Separated",
+        "Separated"
+      ]
+    },
+    "retry-specified": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "No automatic retries",
+        "No automatic retries",
+        "No automatic retries",
+        "No automatic retries",
+        "No automatic retries"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    },
+    "logs-specified": {
+      "kind": "specified",
+      "hits": 4,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "Stdout to the cluster collector",
+        "Stdout to the cluster collector",
+        "Stdout to the cluster collector",
+        null,
+        "Stdout to the cluster collector"
+      ],
+      "bands": [
+        "Separated",
+        "Separated",
+        "Separated",
+        "Undetermined",
+        "Separated"
+      ]
+    },
+    "primary-key-specified": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "ULID",
+        "ULID",
+        "ULID",
+        "ULID",
+        "ULID"
+      ],
+      "bands": [
+        "Contested",
+        "Contested",
+        "Contested",
+        "Contested",
+        "Contested"
+      ]
+    }
+  },
+  "underspecified": {
+    "hits": 14,
+    "n": 19,
+    "wilson_lo": 0.512,
+    "wilson_hi": 0.882
+  },
+  "specified": {
+    "hits": 47,
+    "n": 48,
+    "wilson_lo": 0.891,
+    "wilson_hi": 0.996
+  },
+  "escalation_on_specified": {
+    "escalated": 34,
+    "n": 48,
+    "rate": 0.708
+  },
+  "single_box_failure": {
+    "failures": 0,
+    "n": 19,
+    "wilson_hi": 0.168
+  },
+  "meta": {
+    "driver": "claude",
+    "model": "claude-sonnet-5-5",
+    "repeat": 5,
+    "traces": "not committed",
+    "engine": "6c5b4b5 (phases 0-4)",
+    "date": "2026-11-11"
+  }
+}

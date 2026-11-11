@@ -23,6 +23,17 @@ Answers the 2026-11-11 critique of the README demo ([`docs/review-2026-11-11/`](
 - `test_skill_contract.py` holds SKILL.md to 543 lines, runs the payload example and fails if it is `Separated`, and rejects dev-set domain nouns in the example or template.
 - Dev scenarios `underspecified-cache`, `cache-single-box-stated`, `cache-multi-replica-stated` with keys.
 
+### Benchmark (held-out, claude-sonnet-5-5, `--repeat 5`, 10 on the single-box cases; `eval/baseline.json` vs `eval/results-0.4.0.json`)
+| gate | baseline (pre-0.4.0) | 0.4.0 | plan's exit bar | result |
+|---|---|---|---|---|
+| underspecified cases come back `Undetermined` | 0/20, Wilson lower 0.00 | 14/19, Wilson lower 0.51 | lower bound >= 0.75 | **miss** |
+| specified cases inside the accepted set | 47/47, lower 0.92 | 47/48, lower 0.89 | lower bound >= 0.70 | pass |
+| single-box failure (shared store on top) | 0/17, upper 0.18 | 0/19, upper 0.17 | 0/n, reported as the upper bound | pass |
+| escalation rate on specified cases | 36/47 | 34/48 | not more than +20 points over baseline | pass |
+| `REQUIREMENT_GROUNDED` on live runs | n/a | 0 violations in 67 runs | green | pass |
+
+The miss is one case: `retry-underspecified` ranked 4/5 times. Every run quoted the whole question ("What retry policy should the outbound HTTP client use?") as a `soft` requirement, which is grounded in the transcript but is not a preference. `REQUIREMENT_GROUNDED` cannot catch that; a rule that a `quote` must not be the question itself is the next change, with a fixture, before the gate is re-run. Protocol-break rate was 9.0% (4 `ESCALATION_WHEN_CONTESTED`, 3 `NO_MENU_WHEN_UNDETERMINED`) against 4.5% at baseline.
+
 ## [Unreleased]
 
 ### Fixed
