@@ -27,7 +27,9 @@ or a hair, or whether it checked anything first.
 2. **Scores the rest against fixed descriptions** (fit, reversibility, how proven
    it is), so a score means the same thing every time.
 3. **Checks whether the winner really wins.** It shuffles the weights and ratings
-   a few hundred times. If the leader keeps changing, it says the call is contested.
+   a few hundred times, and swaps in the runner-up's rating one criterion at a
+   time. If the leader changes either way, it says the call is contested and
+   names the rating the lead rests on.
 4. **Asks you.** You get a normal menu in your agent's own UI: the top pick
    marked *(Recommended)*, the runner-up's best argument, and an *Other* option.
    Your pick wins, and it gets logged.
@@ -187,20 +189,29 @@ JSON
 ```
 
 ```console
-1. Redis  score 81  (evidence 90)
-2. In-memory LRU  score 41  (evidence 60)
+tiltrank: 2 ranked · 1 excluded (Managed SaaS) · Separated
+1. Redis  fit high · reversibility med · precedent high · evidence high
+2. In-memory LRU  fit low · reversibility high · precedent low · evidence med
 --. Managed SaaS  EXCLUDED — violates the self-hosted requirement
 
+lead holds on every single rating
 separation: robust — how often this option stays on top under resampled weights and one-band rating noise
 band: Separated
 separated: yes — a recommendation is defensible
-NOTE: utility points on the anchor scale, not a confidence probability. Show the user the band, never the number.
+NOTE: levels are anchor bands, not a confidence. Quote the band and the `lead rests on` line to the user; pass --table or --json for numbers.
 ```
 
-Add `--json` for machine-readable output and `--log` to append the decision to
-`.decisions.log`, or set `$TILTRANK_LOG`. Each record holds the weights,
-scores, verdict, your pick, and whether you overrode the recommendation, so you
-can later check whether the recommendations held up.
+The default output has no totals: Claude Code shows this text to you, and a
+weighted sum next to a label reads as precision the three-level inputs do not
+have. `--table` prints the totals and bounds, `--json` is for tooling, and
+`--log` appends the decision to `.decisions.log` (or `$TILTRANK_LOG`). Each
+record holds the question, the requirements, the weights, every level, the
+verdict, your pick, and whether you overrode the recommendation.
+
+The `lead rests on` line is a deterministic probe: give the top option the
+runner-up's rating on one criterion at a time. If any single swap flips the
+order, the call is `Contested`, whatever the resampling said, and the line names
+the rating the lead depends on.
 
 ## Testing
 
@@ -215,7 +226,8 @@ A skill is a prompt, so the main risk is the agent not following it.
 `check_trace.py` fails a trace if the agent:
 
 - offers more than 4 options, or offers an excluded one
-- shows a score-like number (`82%`, `82/100`, `0.82`, "confidence")
+- shows a score-like number (`82%`, `82/100`, `0.82`, "confidence"), passes
+  `--json` on Claude Code, or repeats a logged total in its reply
 - marks the wrong option *(Recommended)*
 - skips a required review, or re-scores to make a warning go away
 - runs an *Other* answer that looks like an injected command

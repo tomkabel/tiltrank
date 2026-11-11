@@ -137,19 +137,12 @@ Three rules on *how* to score, which matter as much as the anchors:
    latency and operability are not in the default set at all. Pass a different
    `weights` map when the defaults don't fit — and say in the question body that
    you changed them, and why.
-   The single misfit worth recognising on sight is `reversibility` deciding a
-   *sequence*: it penalises an option precisely for being irreversible, so it
-   will rank a reversible wait-and-see option above a dated irreversible
-   obligation that has to happen first. A criterion that prices irreversibility
-   must not order irreversible work against reversible work — refit it down
-   (a dated, unable-to-be-undone obligation ran at `reversibility: 0.1`) and log
-   it as a refit.
-   A batch run has no question body to disclose the change in: pass `weights` in
-   the payload together with a free-text reason key (the script ignores keys it
-   does not know) and carry the same sentence into the host workflow's decision
-   note. Without that, a `.decisions.log` line whose weights differ from the
-   default reads as a corrupt record rather than a deliberate refit, and the next
-   session has no way to tell a refit from a bug.
+   The misfit to recognise on sight is `reversibility` deciding a *sequence*: it
+   ranks a reversible wait-and-see option above a dated irreversible obligation
+   that has to happen first. Refit it down (`reversibility: 0.1`) and log the
+   refit. A batch run has no question body: pass `weights` with a free-text
+   reason key (the script ignores unknown keys) and carry the sentence into the
+   host workflow's note, or the log line reads as corrupt rather than refitted.
 
 Run it. Resolve the script path from the skill's own directory, not from a guessed install path.
 
@@ -186,15 +179,23 @@ into contention by scoring well elsewhere. `feasible` must be the JSON boolean
 `true` or `false`: the script rejects `"false"`, `0`, `null` and `"no"` rather
 than guess which way you meant them. Requires Python >= 3.10, stdlib only.
 
-The script returns a ranking, a `band`, a `separation` reading, and — when the
-call should not stand on its own — an `ESCALATE` line naming its reasons.
+The script's first line stands alone (`tiltrank: 3 ranked · 1 excluded (…) ·
+Contested · ESCALATE not-separable`), then each option's levels as words, a
+`lead rests on` line, a `separation` reading, the `band`, and — when the call
+should not stand on its own — an `ESCALATE` line naming its reasons. The default
+output has no totals, because Claude Code shows Bash output to the user. **Never
+pass `--json` in a Claude Code session, and never write a total into your
+reply.** `--table` and `--json` exist for batch tooling, not for the ask.
 
 **`separation` is measured, not asserted.** The script resamples the weights and
 jitters every sub-score by one anchor band a few hundred times, and reports how
-often your top option stays on top: `robust`, `marginal`, or `fragile`. A lead
-that only survives one particular weighting is not a lead. This is why you must
-not talk yourself past a `fragile` reading — it is telling you the recommendation
-is an artifact of numbers you made up.
+often your top option stays on top: `robust`, `marginal`, or `fragile`. It also
+runs a deterministic probe: give the top option the runner-up's rating on one
+criterion at a time. If any single substitution flips the order, the output says
+`lead rests on: <criterion> of <option>` and the band is `Contested` whatever the
+resampling said — the lead is one mis-scored rating away from wrong. Otherwise it
+says `lead holds on every single rating`. Do not talk yourself past either a
+`fragile` reading or a `lead rests on` line.
 
 ### 3. Escalate when the call is genuinely close, or when asked
 
@@ -292,9 +293,11 @@ and the user can pick it through Other. If that addition was the script's top
 pick, `(Recommended)` goes on the highest-ranked candidate of the user's that
 survived, and the question body says your addition ranked above it.
 
-In each option's description:
+The ask does not repeat the transcript. The question body carries what a Hermes
+or pi user may not see in tool output — the exclusions with the requirement each
+fails, and the `lead rests on` line — and does not restate the band; the
+script's first line already said it. In each option's description:
 
-- The **band**, not a number: `Strong lead`, `Contested`, `Weak field`.
 - One clause on the real tradeoff — including the cost, not just the upside.
 - Mark the top option's `label` with `(Recommended)`, per the tool's convention.
 - **No numbers at all.** Not `82%`, not `82/100`, not `0.82`, not "high
@@ -304,8 +307,9 @@ In each option's description:
 Then three things that counteract the fact that a sorted, marked, default-first
 menu is already steering the user:
 
-- **Steelman the runner-up** in the question body: the single strongest reason to
-  pick #2 instead.
+- **Quote the runner-up case.** The `lead rests on` line *is* the runner-up's
+  case: it names the one rating that would put #2 on top. Quote it; do not
+  narrate a steelman of your own.
 - **Disclose self-generated options.** If you wrote the candidate list yourself,
   say so: *"I wrote these options, so treat my ranking as biased."* You are
   grading your own homework, and the user should know.

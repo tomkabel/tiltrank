@@ -8,6 +8,7 @@ malformed or merely incomplete model output silently corrupts a ranking.
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -871,6 +872,123 @@ def test_injection_flag_is_best_effort_but_not_trivially_bypassed() -> None:
         assert injection_findings([{"label": text}]), f"missed: {text!r}"
     for text in INJECTION_NEGATIVE:
         assert not injection_findings([{"label": text}]), f"false positive: {text!r}"
+
+
+# --------------------------------------------------------------------------- #
+# engine honesty (review 2026-11-11, phase 2)
+# --------------------------------------------------------------------------- #
+
+# The README hero of 2026-11-11: the resampler rated this `robust`, yet giving
+# Redis the runner-up's fit drops it to 46, below File-based at 49.
+DEMO_PAYLOAD = {
+    "choices": [
+        {
+            "label": "Redis",
+            "evidence": HIGH,
+            "scores": {
+                "fit_to_constraints": HIGH,
+                "reversibility": MID,
+                "precedent": HIGH,
+            },
+        },
+        {
+            "label": "File-based",
+            "evidence": MID,
+            "scores": {
+                "fit_to_constraints": LOW,
+                "reversibility": HIGH,
+                "precedent": MID,
+            },
+        },
+        {
+            "label": "In-memory LRU",
+            "evidence": MID,
+            "scores": {
+                "fit_to_constraints": LOW,
+                "reversibility": HIGH,
+                "precedent": LOW,
+            },
+        },
+        {
+            "label": "Managed SaaS",
+            "feasible": False,
+            "note": "violates the self-hosted requirement",
+        },
+    ]
+}
+
+
+def test_demo_payload_is_contested_because_the_lead_rests_on_one_rating() -> None:
+    v = rank_choices(DEMO_PAYLOAD["choices"])
+    assert v.rests_on == ["fit_to_constraints"]
+    assert v.band == "Contested" and not v.separated and "not-separable" in v.reasons
+    assert "lead rests on: fit_to_constraints of Redis" in cli(DEMO_PAYLOAD).stdout
+
+
+def test_lead_that_holds_on_every_single_rating_stays_separated() -> None:
+    v = rank_choices(
+        [
+            choice("A", fit_to_constraints=HIGH, reversibility=HIGH, precedent=HIGH),
+            choice("B", fit_to_constraints=LOW, reversibility=LOW, precedent=LOW),
+        ]
+    )
+    assert v.rests_on == [] and v.separated and v.band == "Separated"
+    dominant = {
+        "choices": [
+            choice("A", fit_to_constraints=HIGH, reversibility=HIGH, precedent=HIGH),
+            choice("B", fit_to_constraints=LOW, reversibility=LOW, precedent=LOW),
+        ]
+    }
+    assert "lead holds on every single rating" in cli(dominant).stdout
+
+
+def _json_totals(blob: dict) -> set[str]:
+    nums: set[str] = set()
+    for r in blob["ranked"]:
+        nums.update(f"{r[k]:g}" for k in ("rank_key", "point", "lo", "hi"))
+    if blob.get("gap") is not None:
+        nums.add(f"{blob['gap']:g}")
+    # stability is a 0-1 fraction; 1.0 would collide with "1 ranked".
+    return nums - {f"{lvl:g}" for lvl in LEVELS}
+
+
+def test_default_output_prints_no_total_from_json() -> None:
+    """Tested as tokens, not as 'no digit': the headline says `3 ranked`."""
+    payloads = [
+        DEMO_PAYLOAD,
+        {
+            "choices": [
+                choice("Alpha", fit_to_constraints=HIGH, precedent=HIGH),
+                choice("Beta", fit_to_constraints=LOW),
+            ]
+        },
+        {
+            "choices": [
+                choice("P", precedent=None),
+                choice("Q", reversibility=None, evidence=None),
+            ]
+        },
+        {"choices": [choice("Only one")]},
+    ]
+    for payload in payloads:
+        blob = json.loads(cli(payload, "--json").stdout)
+        out = cli(payload).stdout
+        tokens = set(re.findall(r"\d+(?:\.\d+)?", out))
+        leaked = _json_totals(blob) & tokens
+        assert not leaked, f"totals leaked into default output: {leaked}\n{out}"
+        assert out.startswith("tiltrank: "), out.splitlines()[0]
+        assert "score " not in out
+    table = cli(DEMO_PAYLOAD, "--table").stdout
+    assert "score 81" in table  # the numbers still exist, one flag away
+
+
+def test_headline_stands_alone() -> None:
+    first = cli(DEMO_PAYLOAD).stdout.splitlines()[0]
+    assert first == (
+        "tiltrank: 3 ranked · 1 excluded (Managed SaaS) · Contested · ESCALATE not-separable"
+    )
+    v = rank_choices(DEMO_PAYLOAD["choices"])
+    assert json.loads(cli(DEMO_PAYLOAD, "--json").stdout)["rests_on"] == v.rests_on
 
 
 # --------------------------------------------------------------------------- #
