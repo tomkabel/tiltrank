@@ -68,7 +68,9 @@ Cheap and it dominates everything downstream. Before ranking anything:
   output says what is missing. **On `Undetermined`, the ask is at most 3 closed
   clarifying questions, not the option menu** ("One instance / Several replicas /
   Don't know yet"). Each answer becomes a requirement with `source: "user"`, then
-  re-run. "Don't know yet" becomes `source: "assumed"`: the ranking it produces
+  re-run. "Don't know yet" becomes `source: "assumed"`. **An assumed requirement
+  exists only as the answer to a clarify round**, never a guess before one; the
+  ranking it produces
   is capped at `Contested` (`ESCALATE assumed-requirement`), and **every assumed
   requirement is stated in the ask body.** One clarify round per decision. A
   second `Undetermined` goes to the user as "can't rank without X"; never loop.

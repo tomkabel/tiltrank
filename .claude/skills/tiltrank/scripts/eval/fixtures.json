@@ -4726,5 +4726,90 @@
         }
       ]
     }
+  },
+  {
+    "name": "REGRESSION-assumed-requirement-without-clarify",
+    "expect_violations": [
+      "ASSUMED_ONLY_AFTER_CLARIFY"
+    ],
+    "trace": {
+      "scenario": "underspecified-cache",
+      "candidates": [
+        "Redis",
+        "In-memory LRU",
+        "File-based",
+        "Managed SaaS"
+      ],
+      "user_messages": [
+        "Which cache should the API use? It has to be self-hosted."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "In-memory LRU",
+          "separated": false,
+          "reasons": [
+            "assumed-requirement"
+          ],
+          "excluded": [
+            "Managed SaaS"
+          ],
+          "options_scored": [
+            "In-memory LRU",
+            "Redis",
+            "File-based",
+            "Managed SaaS"
+          ],
+          "requirements": [
+            {
+              "id": "self-hosted",
+              "text": "must be self-hosted",
+              "quote": "It has to be self-hosted",
+              "kind": "hard",
+              "source": "user"
+            },
+            {
+              "id": "instances",
+              "text": "one instance, cold cache after restart is fine",
+              "quote": "Don't know yet",
+              "kind": "soft",
+              "source": "assumed"
+            }
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": true
+        },
+        {
+          "type": "ask",
+          "question": "Which cache? Assumed: one instance, cold cache after restart is fine. Lead rests on: fit_to_constraints of In-memory LRU. Excluded: Managed SaaS (must be self-hosted).",
+          "options": [
+            {
+              "label": "In-memory LRU (Recommended)",
+              "description": "nothing to operate, per-process"
+            },
+            {
+              "label": "Redis",
+              "description": "shared, one more service to run"
+            },
+            {
+              "label": "File-based",
+              "description": "no service, disk on the hot path"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "In-memory LRU",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "In-memory LRU"
+        }
+      ]
+    }
   }
 ]

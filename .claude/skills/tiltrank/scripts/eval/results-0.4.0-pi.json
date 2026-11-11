@@ -1,0 +1,171 @@
+{
+  "per_case": {
+    "broker-underspecified": {
+      "kind": "underspecified",
+      "hits": 0,
+      "graded": 1,
+      "runs": 1,
+      "tops": [
+        "NATS JetStream"
+      ],
+      "bands": [
+        "Contested"
+      ]
+    },
+    "bundler-underspecified": {
+      "kind": "underspecified",
+      "hits": 0,
+      "graded": 1,
+      "runs": 1,
+      "tops": [
+        "Vite"
+      ],
+      "bands": [
+        "Contested"
+      ]
+    },
+    "retry-underspecified": {
+      "kind": "underspecified",
+      "hits": 0,
+      "graded": 1,
+      "runs": 1,
+      "tops": [
+        "Exponential backoff with jitter"
+      ],
+      "bands": [
+        "Contested"
+      ]
+    },
+    "primary-key-underspecified": {
+      "kind": "underspecified",
+      "hits": 0,
+      "graded": 1,
+      "runs": 1,
+      "tops": [
+        "ULID"
+      ],
+      "bands": [
+        "Contested"
+      ]
+    },
+    "broker-specified": {
+      "kind": "specified",
+      "hits": 1,
+      "graded": 1,
+      "runs": 1,
+      "tops": [
+        "Postgres SKIP LOCKED"
+      ],
+      "bands": [
+        "Only feasible option"
+      ]
+    },
+    "feature-flags-specified": {
+      "kind": "specified",
+      "hits": 1,
+      "graded": 1,
+      "runs": 1,
+      "tops": [
+        "Database table with an admin page"
+      ],
+      "bands": [
+        "Contested"
+      ]
+    },
+    "session-store-single-instance": {
+      "kind": "specified",
+      "hits": 10,
+      "graded": 10,
+      "runs": 10,
+      "tops": [
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    },
+    "rate-limit-single-instance": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    }
+  },
+  "underspecified": {
+    "hits": 0,
+    "n": 4,
+    "wilson_lo": 0.0,
+    "wilson_hi": 0.49
+  },
+  "specified": {
+    "hits": 17,
+    "n": 17,
+    "wilson_lo": 0.816,
+    "wilson_hi": 1.0
+  },
+  "escalation_on_specified": {
+    "escalated": 7,
+    "n": 17,
+    "rate": 0.412
+  },
+  "single_box_failure": {
+    "failures": 0,
+    "n": 15,
+    "wilson_hi": 0.204
+  },
+  "meta": {
+    "driver": "pi",
+    "model": "gemini-2.5-pro",
+    "repeat": 1,
+    "engine": "1022636",
+    "date": "2026-11-11",
+    "note": "partial: aborted at run 22 of 28 on a provider MALFORMED_FUNCTION_CALL; graded from trace files",
+    "not_run": [
+      "bundler-specified",
+      "retry-specified",
+      "logs-specified",
+      "primary-key-specified"
+    ]
+  },
+  "protocol": {
+    "scored": 21,
+    "broken": 6,
+    "by_rule": {
+      "ASSUMPTION_DISCLOSED": 4,
+      "NO_INVENTED_OPTIONS": 1,
+      "ESCALATION_WHEN_CONTESTED": 2
+    }
+  }
+}

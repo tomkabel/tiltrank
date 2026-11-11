@@ -34,6 +34,12 @@ Answers the 2026-11-11 critique of the README demo ([`docs/review-2026-11-11/`](
 
 The miss was one case: `retry-underspecified` ranked 4/5 times by quoting the whole question as a `soft` requirement, grounded but not a preference. Fix: `rubric.py` rejects a quote equal to `question`, and rule `QUOTE_NOT_THE_QUESTION` flags a quote that is a whole user message. Re-run of the four underspecified cases at `--repeat 5` after the fix: **20/20 `Undetermined`, Wilson lower bound 0.83** (`eval/results-0.4.0-underspecified-rerun.json`); the gate passes. Protocol-break rate was 9.0% (4 `ESCALATION_WHEN_CONTESTED`, 3 `NO_MENU_WHEN_UNDETERMINED`) against 4.5% at baseline.
 
+### Cross-harness release pass
+- **Claude, specified cases re-run after `QUOTE_NOT_THE_QUESTION`:** 47/50 inside the accepted set (Wilson lower 0.84), single-box failure 0/20, escalation 30/50 (`eval/results-0.4.0-specified-rerun.json`).
+- **pi (gemini-2.5-pro, `--repeat 1`, partial):** 21 of 28 runs graded before a Gemini `MALFORMED_FUNCTION_CALL` aborted the pass; four specified cases never ran. Specified 17/17, single-box 0/15, underspecified 0/4. The model wrote its own `assumed` requirements before asking, turning `Undetermined` into `Contested`. New rule `ASSUMED_ONLY_AFTER_CLARIFY` flags all four of those traces and none of the Claude traces. pi's default model (deepseek-v4-pro) returned HTTP 402 (`eval/results-0.4.0-pi.json`).
+- **Hermes: no pass.** Under Hermes v0.23's multiplexing gateway a variable missing from the profile's `.env` resolves to the default, never the calling process's environment, so the driver's per-run `TILTRANK_LOG` cannot reach the terminal tool. Adding it to `terminal.env_passthrough` was tested and has no effect; a throwaway `HERMES_HOME` fails with "Gateway draining: not_ready". The release-pass requirement for Hermes is unmet.
+- Live drivers close stdin (every pi run used to hit the 900s timeout), and the pi driver runs with `-ne` so an operator package entry cannot load `extensions/tiltrank.test.ts` as an extension.
+
 ## [Unreleased]
 
 ### Fixed

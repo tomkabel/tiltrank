@@ -126,6 +126,7 @@ RULES: dict[str, str] = {
     "NO_MENU_WHEN_UNDETERMINED": "On `Undetermined`, the ask is at most 3 closed clarifying questions, not the option menu",
     "ASSUMPTION_DISCLOSED": "every assumed requirement is stated in the ask body.",
     "QUOTE_NOT_THE_QUESTION": "A `quote` is a need the user stated, never the question itself",
+    "ASSUMED_ONLY_AFTER_CLARIFY": "An assumed requirement exists only as the answer to a clarify round",
     "ADR_MATCHES_PICK": "Its Decision section names the user's pick, and every excluded option appears",
 }
 
@@ -437,6 +438,22 @@ def check(trace: dict) -> list[str]:
                     for f in files_read
                 ):
                     bad.append("REQUIREMENT_GROUNDED")
+
+    # `assumed` is the record of a "Don't know yet" answer. Written before any
+    # clarify round it is a guess that turns Undetermined into Contested
+    # without asking: 4/4 underspecified cases on pi (gemini-2.5-pro).
+    for n, i in enumerate(rubric_at):
+        if not any(
+            r.get("source") == "assumed" for r in events[i].get("requirements") or []
+        ):
+            continue
+        asked = any(
+            _undetermined(events[j])
+            and any(e.get("type") == "ask" for e in events[j:i])
+            for j in rubric_at[:n]
+        )
+        if not asked:
+            bad.append("ASSUMED_ONLY_AFTER_CLARIFY")
 
     # An assumed requirement is an answer the user did not give. The user must
     # see it in the ask that rests on it.
