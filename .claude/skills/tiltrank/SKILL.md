@@ -169,12 +169,16 @@ cannot be copy-pasted as a real payload:
 ```bash
 python3 <skill-dir>/scripts/rubric.py <<'JSON'
 {"choices": [
-  {"label": "Option A", "evidence": 90, "scores": {"fit_to_constraints": 90, "reversibility": 60, "precedent": 90}},
-  {"label": "Option B", "evidence": 60, "scores": {"fit_to_constraints": 20, "reversibility": 90, "precedent": 20}},
+  {"label": "Option A", "evidence": 60, "scores": {"fit_to_constraints": 60, "reversibility": 90, "precedent": null}},
+  {"label": "Option B", "evidence": 20, "scores": {"fit_to_constraints": 60, "reversibility": 60, "precedent": 60}},
   {"label": "Option C", "feasible": false, "note": "violates a stated hard constraint"}
 ]}
 JSON
 ```
+
+This example comes back `Contested` with `ESCALATE — not-separable,
+unverified-evidence`: fit is tied, one rating is `null`, and the lead was never
+checked. That is the normal shape of a first run, not a failure.
 
 Set `"feasible": false` with a `note` for any option that fails a hard
 constraint. It is reported but never ranked, so it cannot be compensated back
@@ -315,12 +319,11 @@ reuse** — labels and descriptions must come from the user's actual candidates
 and your real rubric run:
 
 ```text
-{question}: "Which approach? Runner-up case: Option B needs no new infra at
-all, which matters more if this stays a single box. Excluded: Option C
-(violates the self-hosted requirement).",
+{question}: "Which approach? Runner-up case: {the line rubric.py prints for
+the lead}. Excluded: Option C ({the requirement it fails}).",
 options: [
-  { label: "Option A (Recommended)", description: "Strong lead — proven at this shape, but adds an infra dependency to operate" },
-  { label: "Option B",               description: "Contested — zero infra, but the cache dies on every restart" }
+  { label: "Option A (Recommended)", description: "{one clause: the real tradeoff, cost included}" },
+  { label: "Option B",               description: "{one clause: the real tradeoff, cost included}" }
 ]
 ```
 
@@ -346,41 +349,33 @@ autonomous runs. The skill must handle it without inventing a user decision.
   ranking is an open one.
 - **Never** silently treat a timeout as consent, and never log a timeout under
   `pick: <some option>` — that fabricates a user decision that never happened.
-- **A standing pre-authorisation is an answer, not a timeout.** When the user has told you to decide
-  by rubric for the run ("use tiltrank for all decisions"), do not stage an ask you already know is
-  answered and do not log `pick: null` for it — that records an open decision the user actually
-  closed. An interactive user who says "use /tiltrank for all decisions" or "use tiltrank for all
-  decisions/choices" is choosing the mechanism, not waiving the ask: they are present and will pick.
-  Run the rubric, escalate if the script says so, and stage the form. Silent pick is only when they
-  also authorised deciding without them, or the run cannot ask. Logging a pick they did not make,
-  because the phrase was read as pre-authorisation, fabricates the decision the form exists to collect. Run each fork, log the pick with `escalated` as the script reported it and
-  `"timed_out": false`, and still show the ranking, the band and the fragility reading in your
-  output so the user can override. The three log states must stay distinguishable: answered (pick
-  copied verbatim from the ask), pre-authorised (pick recorded, no user answer existed — say so in
-  the output), expired (`"pick": null` with `"timed_out": true`).
-- **Pre-authorisation does not waive escalation.** If the script printed `ESCALATE`, run the
-  falsifying probe anyway — a probe that could kill the top option is what earns the pick, and
-  "the user said stop asking" is not evidence. Record the probe in the host workflow's log, where
-  its result can be argued with later.
+- **A standing pre-authorisation is an answer, not a timeout.** When the user has
+  told you to decide by rubric *without them* for the run, do not stage an ask you
+  already know is answered and do not log `pick: null` for it. Log the pick with
+  `escalated` as the script reported it and `"timed_out": false`, say in the output
+  that no user answer existed, and still show the ranking so the user can override.
+  An interactive user who says "use tiltrank for all decisions" is choosing the
+  mechanism, not waiving the ask: run the rubric, escalate if the script says so,
+  and stage the form. The three log states must stay distinguishable: answered
+  (pick copied verbatim from the ask), pre-authorised (pick recorded, no answer
+  existed), expired (`"pick": null` with `"timed_out": true`).
+- **Pre-authorisation does not waive escalation.** If the script printed
+  `ESCALATE`, run the falsifying probe anyway; "the user said stop asking" is not
+  evidence. Record the probe in the host workflow's log.
 - **Run the script in its own turn, before you compose the ask.** The question body
-  must carry the band, the steelman and the fragility wording, and none of them exist
+  must carry the steelman and the fragility wording, and none of them exist
   until the rubric returns. Batched into one turn, the ask gets composed blind and the
   numbers leak back in as adjectives.
-- **A form's timeout does not void the answers it already collected.** When a
-  multi-question ask returns with one answered and the rest expired, act on the answered
-  one normally — score logged, pick recorded — and treat only the unanswered items as
-  open.
+- **A form's timeout does not void the answers it already collected.** Act on the
+  answered items normally and treat only the unanswered ones as open.
 - **An open-ended question has no default to fall back on.** A choice-less question is
   elicitation: the answer exists only in the user's head. A timeout there leaves it
   *unanswerable*, so never substitute a plausible answer — either hold it open, or draft
   from evidence you already have and tag the draft `[ASSUMPTION: …]` with what would
   settle it. Never log it as a pick.
-- **Ask one decision per form when the user is time-boxed; batch the independent ones when they are present.**
-  Forms that expire take every question in them down together, so a time-boxed run gets one decision per form —
-  the decision you needed and the context you could have drafted from are otherwise lost at once. An interactive
-  user, by contrast, answers a form of several independent decisions without loss and each extra round-trip costs
-  a turn, so batch there. Either way keep open elicitation in its own explicitly-optional question, and keep
-  dependent decisions out of the same form.
+- **One decision per form when the user is time-boxed; batch independent ones when
+  they are present.** An expired form takes every question in it down together. Keep
+  open elicitation in its own optional question, and dependent decisions apart.
 
 ### 5. Act on the answer, and record it
 

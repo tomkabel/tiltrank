@@ -184,6 +184,60 @@ def test_live_rubric_events_carry_every_scored_label() -> None:
 
 
 # --------------------------------------------------------------------------- #
+# review 2026-11-11, phase 0: SKILL.md must not teach the demo
+# --------------------------------------------------------------------------- #
+
+LINE_BUDGET = 543  # SKILL.md on 2026-11-11; a phase that adds prose removes as much
+
+
+def _example_payload() -> dict:
+    payload = re.search(r"<<'JSON'\n(.*?)\nJSON", SKILL, re.S)
+    assert payload
+    return json.loads(payload.group(1))
+
+
+def test_skill_md_stays_within_the_line_budget() -> None:
+    lines = SKILL.count("\n")
+    assert lines <= LINE_BUDGET, f"SKILL.md is {lines} lines, budget is {LINE_BUDGET}"
+
+
+def test_payload_example_does_not_show_a_confident_lead() -> None:
+    """The example used to be the demo's exact vectors, so every run was primed
+    with a `Separated` lead shaped like the demo's. It must escalate instead."""
+    from rubric import rank_choices  # pyright: ignore[reportMissingImports]
+
+    payload = _example_payload()
+    verdict = rank_choices(payload["choices"], payload.get("weights"))
+    assert verdict.band != "Separated", f"example comes back {verdict.band}"
+    assert verdict.escalate, "the example should show what an ESCALATE line looks like"
+
+
+def _dev_set_nouns() -> list[str]:
+    scenarios = json.loads(
+        (HERE / "eval" / "scenarios.json").read_text(encoding="utf-8")
+    )
+    nouns = {c for s in scenarios for c in s.get("candidates", [])}
+    nouns |= {"cache", "infra", "restart", "single box"}
+    return sorted(n for n in nouns if len(n) > 3)
+
+
+def test_example_and_template_carry_no_domain_noun() -> None:
+    """The engine has no domain logic; the skill's own examples must not push
+    one scenario's reasoning (cache, infra, single box) into every decision."""
+    text = _example_payload()
+    blob = json.dumps(text) + "\n"
+    template = re.search(r"```text\n(.*?)```", section("4. Present the ask"), re.S)
+    assert template
+    blob += template.group(1)
+    hits = [
+        n
+        for n in _dev_set_nouns()
+        if re.search(rf"(?<!\w){re.escape(n)}(?!\w)", blob, re.I)
+    ]
+    assert not hits, f"domain nouns in the example or template: {hits}"
+
+
+# --------------------------------------------------------------------------- #
 # every checker rule: stated in SKILL.md, and guarded by a fixture
 # --------------------------------------------------------------------------- #
 

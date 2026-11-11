@@ -14,10 +14,6 @@ Works as a skill in **Claude Code**, **Hermes Agent**, and **pi**. Pure Python, 
 [![pi](https://img.shields.io/badge/pi-extension-2D7D6E)](https://github.com/badlogic/pi-mono)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-spec--compliant-8A2BE2)](https://agentskills.io/)
 
-<p align="center">
-  <img src="docs/demo.svg" alt="tiltrank in a Claude Code session: the agent scores four caching options, excludes the managed SaaS for breaking the self-hosted rule, and shows a menu with Redis recommended" width="900">
-</p>
-
 ## The problem
 
 Ask an agent "which of these four should I use?" and you get one confident
