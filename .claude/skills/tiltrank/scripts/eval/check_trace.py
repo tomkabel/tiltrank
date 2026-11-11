@@ -901,6 +901,9 @@ def _claude_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
         capture_output=True,
         encoding="utf-8",
         timeout=timeout,
+        # A child that inherits an open stdin lets a bare `rubric.py` call
+        # block on it until the 900s timeout (every pi run, 2026-11-11).
+        stdin=subprocess.DEVNULL,
         env=env,
         cwd=cwd,
     )
@@ -948,6 +951,9 @@ def _hermes_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
         capture_output=True,
         encoding="utf-8",
         timeout=timeout,
+        # A child that inherits an open stdin lets a bare `rubric.py` call
+        # block on it until the 900s timeout (every pi run, 2026-11-11).
+        stdin=subprocess.DEVNULL,
         env=env,
         cwd=cwd,
     )
@@ -1012,9 +1018,15 @@ def _pi_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
     # with everything else the scenarios don't need);
     # --no-session keeps the per-scenario tmpdir clean;
     # --mode json emits machine-readable output.
+    # -ne: measure the skill, not the operator's setup (the claude driver's
+    # --setting-sources does the same). An operator settings.json that lists
+    # this repo as a package makes pi load every .ts under extensions/,
+    # tiltrank.test.ts included, and abort before the first turn (2026-11-11).
+    # --tools already keeps the extension's ask tool out of the run.
     cmd = [
         "pi",
         "-p",
+        "-ne",
         "--mode",
         "json",
         "--no-session",
@@ -1031,6 +1043,9 @@ def _pi_adapter(prompt: str, cwd: Path, env: dict, timeout: int):
         capture_output=True,
         encoding="utf-8",
         timeout=timeout,
+        # A child that inherits an open stdin lets a bare `rubric.py` call
+        # block on it until the 900s timeout (every pi run, 2026-11-11).
+        stdin=subprocess.DEVNULL,
         env=env,
         cwd=cwd,
     )
