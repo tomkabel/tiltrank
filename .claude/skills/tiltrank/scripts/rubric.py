@@ -26,7 +26,8 @@ Three design decisions worth knowing before you read the code:
    escalation: weak evidence means go get evidence, not dock points.
 
 Usage:
-    echo '{"choices": [...]}' | python3 rubric.py
+    echo '{"choices": [...]}' | python3 rubric.py           # levels as words, no totals
+    echo '{"choices": [...]}' | python3 rubric.py --table   # totals and bounds
     echo '{"choices": [...]}' | python3 rubric.py --json
     echo '{"choices": [...], "pick": "Redis"}' | python3 rubric.py --log .decisions.log
 """
@@ -93,13 +94,18 @@ _CONTROL_RE = re.compile(
 )
 
 
-def sanitise_label(raw: object) -> str:
-    """Normalise a candidate label for safe rendering. Returns '' if it is empty."""
+def _normalise_text(raw: object) -> str:
+    """Normalise whitespace and strip controls without truncating content."""
     if raw is None:
         return ""
     text = unicodedata.normalize("NFC", str(raw))
     text = _CONTROL_RE.sub(" ", text)
-    text = " ".join(text.split())
+    return " ".join(text.split())
+
+
+def sanitise_label(raw: object) -> str:
+    """Normalise a candidate label for safe rendering. Returns '' if it is empty."""
+    text = _normalise_text(raw)
     if len(text) > MAX_LABEL_LEN:
         text = text[: MAX_LABEL_LEN - 1].rstrip() + "…"
     return text
@@ -220,9 +226,21 @@ class Verdict:
     stability: float | None = None
     reasons: list[str] = field(default_factory=list)
     findings: list[dict[str, str]] = field(default_factory=list)
+    # Criteria on which the lead rests: substituting the runner-up's rating for
+    # the top option's on any one of them flips the order. Empty = lead holds.
+    rests_on: list[str] = field(default_factory=list)
+    # Validated anchor levels per ranked label, for the number-free table.
+    levels: dict[str, dict[str, float | None]] = field(default_factory=dict)
+    # Undetermined: nothing the user stated separates the survivors, or a hard
+    # constraint is unknown for one of them. No order, no recommendation.
+    undetermined: bool = False
+    missing: list[str] = field(default_factory=list)
+    requirements: list[dict] = field(default_factory=list)
 
     @property
     def recommended(self) -> Ranked | None:
+        if self.undetermined:
+            return None
         return self.ranked[0] if self.ranked else None
 
     @property
@@ -387,22 +405,153 @@ def _stability(
     return round(survived / PERTURBATIONS, 3)
 
 
+REQUIREMENT_KINDS = ("hard", "soft")
+REQUIREMENT_SOURCES = ("user", "repo", "assumed")
+CONSTRAINT_STATES = ("pass", "fail", "unknown")
+_REF_RE = re.compile(r"^.+:\d+$")
+
+
+def _validate_requirements(raw: object) -> list[dict]:
+    """`requirements: [{id, text, quote, kind, source, ref?}]`.
+
+    `quote` is the user's own words (or the repo line) so the eval can check it
+    against the transcript; `source: "repo"` needs a `ref` of the form
+    `path:line` for the same reason. An `assumed` requirement is an answer the
+    user did not give, and it caps the band at Contested.
+    """
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise ValueError(f"'requirements' must be a list of objects, got {raw!r}")
+    out: list[dict] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not isinstance(item, Mapping):
+            raise ValueError(f"every requirement must be an object, got {item!r}")
+        rid = item.get("id")
+        if not isinstance(rid, str) or not rid.strip():
+            raise ValueError(f"requirement needs a non-empty string 'id': {item!r}")
+        if rid in seen:
+            raise ValueError(f"duplicate requirement id: {rid!r}")
+        seen.add(rid)
+        for key in ("text", "quote"):
+            if not isinstance(item.get(key), str):
+                raise ValueError(f"requirement {rid!r}: '{key}' must be a string")
+        kind, source = item.get("kind"), item.get("source")
+        if kind not in REQUIREMENT_KINDS:
+            raise ValueError(
+                f"requirement {rid!r}: 'kind' must be one of {list(REQUIREMENT_KINDS)}"
+            )
+        if source not in REQUIREMENT_SOURCES:
+            raise ValueError(
+                f"requirement {rid!r}: 'source' must be one of {list(REQUIREMENT_SOURCES)}"
+            )
+        ref = item.get("ref")
+        if source == "repo" and not (isinstance(ref, str) and _REF_RE.match(ref)):
+            raise ValueError(
+                f"requirement {rid!r}: source 'repo' needs a 'ref' of the form path:line"
+            )
+        clean = {
+            "id": rid,
+            "text": _normalise_text(item["text"]),
+            "quote": _normalise_text(item["quote"]),
+            "kind": kind,
+            "source": source,
+        }
+        if isinstance(ref, str):
+            clean["ref"] = ref
+        out.append(clean)
+    return out
+
+
+def _validate_constraints(
+    label: str, raw: object, hard: Sequence[str]
+) -> dict[str, str]:
+    """Per-option `constraints: {<hard id>: pass|fail|unknown}`. A hard
+    requirement the option does not mention is unknown, not passed."""
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, Mapping):
+        raise ValueError(f"{label!r}: 'constraints' must be an object, got {raw!r}")
+    unknown_ids = sorted(set(raw) - set(hard))
+    if unknown_ids:
+        raise ValueError(
+            f"{label!r}: constraints name no hard requirement: {unknown_ids} "
+            f"(hard ids: {list(hard)})"
+        )
+    out: dict[str, str] = {}
+    for rid in hard:
+        state = raw.get(rid, "unknown")
+        if state not in CONSTRAINT_STATES:
+            raise ValueError(
+                f"{label!r}: constraint {rid!r} must be one of {list(CONSTRAINT_STATES)}, "
+                f"got {state!r}"
+            )
+        out[rid] = state
+    return out
+
+
+def _single_rating_probe(
+    top: tuple[str, dict[str, float | None]],
+    second: tuple[str, dict[str, float | None]],
+    w: Mapping[str, float],
+) -> list[str]:
+    """Criteria where giving the top option the runner-up's rating flips the order.
+
+    The resampling in `_stability` flips each rating independently, so it
+    cannot see a *systematic* error: one option mis-scored on one criterion.
+    The 2026-11-11 demo was exactly that, and the resampler rated it `robust`.
+    This probe is deterministic and names the rating the lead depends on.
+    """
+    top_label, top_clean = top
+    second_label, second_clean = second
+    lo2, point2, _ = _bounds(second_clean, w)
+    flips: list[str] = []
+    for k in sorted(w):
+        probe = dict(top_clean)
+        probe[k] = second_clean[k]
+        lo1, point1, _ = _bounds(probe, w)
+        if (lo1, point1, top_label) < (lo2, point2, second_label):
+            flips.append(k)
+    return flips
+
+
 def rank_choices(
     choices: Sequence[Mapping[str, object]],
     weights: Mapping[str, float] | None = None,
+    requirements: object = None,
+    question: object = None,
 ) -> Verdict:
     """Rank feasible choices; gate infeasible ones out *before* weighting.
 
     A hard constraint is not a criterion. An option that violates one cannot be
     compensated back into contention by scoring well on reversibility and
     precedent, so it never enters the ranking — it is reported separately.
+
+    `Undetermined` is computed, not declared: when a survivor's hard constraint
+    is unknown, or when `fit_to_constraints` is tied across survivors so only
+    the generic priors would order them, there is no ranking and no
+    recommendation. The only way past it is a requirement, and the eval checks
+    every requirement against the transcript.
     """
     w = _validate_weights(weights if weights is not None else DEFAULT_WEIGHTS)
+    reqs = _validate_requirements(requirements)
+    q = " ".join(str(question or "").split()).casefold()
+    for r in reqs:
+        if q and " ".join(r["quote"].split()).casefold() == q:
+            raise ValueError(
+                f"requirement {r['id']!r}: its quote is the question itself. A quote is a "
+                "need the user stated; the question states no preference, so leave it "
+                "out and let the script report Undetermined."
+            )
+    hard_ids = [r["id"] for r in reqs if r["kind"] == "hard"]
+    hard_text = {r["id"]: r["text"] for r in reqs if r["kind"] == "hard"}
     if not isinstance(choices, list):
         raise ValueError(f"'choices' must be a list of option objects, got {choices!r}")
     ranked: list[Ranked] = []
     excluded: list[Ranked] = []
     cleaned: list[tuple[str, dict[str, float | None]]] = []
+    unknown_hard: dict[str, list[str]] = {}
     seen: set[str] = set()
 
     for raw in choices:
@@ -435,6 +584,15 @@ def rank_choices(
         if not feasible:
             excluded.append(Ranked(label=label, score=None, feasible=False, note=note))
             continue
+        states = _validate_constraints(label, raw.get("constraints"), hard_ids)
+        failed = [rid for rid, st in states.items() if st == "fail"]
+        if failed:
+            why = "; ".join(f"fails: {hard_text[rid]}" for rid in failed)
+            excluded.append(
+                Ranked(label=label, score=None, feasible=False, note=note or why)
+            )
+            continue
+        unknown_hard[label] = [rid for rid, st in states.items() if st == "unknown"]
 
         if "evidence" not in raw:
             raise ValueError(
@@ -465,21 +623,63 @@ def rank_choices(
             )
         )
 
-    # Rank on the conservative bound. `point` only breaks ties, and only for a
-    # stable display order — it must never decide which option is recommended.
-    ranked.sort(key=lambda r: (r.score.lo, r.score.point, r.label), reverse=True)  # type: ignore[union-attr]
-
-    verdict = Verdict(ranked=ranked, excluded=excluded)
+    verdict = Verdict(
+        ranked=ranked, excluded=excluded, levels=dict(cleaned), requirements=reqs
+    )
     verdict.findings = injection_findings(choices)
     if not ranked:
         verdict.band = "No feasible option"
         verdict.reasons = ["no-feasible-option"]
         return verdict
 
+    # A hard requirement that every survivor passes cannot separate them on
+    # fit. The demo's `fit 90` for one option was legal because the prompt
+    # stated one need and every survivor met it; with no soft requirement a
+    # spread on fit has nothing stated behind it.
+    fits = {c["fit_to_constraints"] for _, c in cleaned if "fit_to_constraints" in c}
+    if len(fits - {None}) > 1 and not any(r["kind"] == "soft" for r in reqs):
+        raise ValueError(
+            "fit_to_constraints differs across survivors but no soft requirement "
+            "is stated. A hard requirement every survivor passes cannot separate "
+            "them on fit: add the stated preference as a `soft` requirement, or "
+            "tie fit and let the script report Undetermined."
+        )
+
+    for r in ranked:
+        for rid in unknown_hard.get(r.label, []):
+            verdict.missing.append(f"unknown hard constraint {rid} for {r.label}")
+    # A null fit is a distinct answer ("could not establish"), not a tie.
+    if len(ranked) > 1 and len(fits) == 1 and "fit_to_constraints" in w:
+        verdict.missing.append("no stated requirement separates these options")
+    if verdict.missing:
+        verdict.undetermined = True
+        verdict.band = "Undetermined"
+        verdict.reasons = ["missing-context"]
+        return verdict
+
+    # Rank on the conservative bound. `point` only breaks ties, and only for a
+    # stable display order — it must never decide which option is recommended.
+    ranked.sort(key=lambda r: (r.score.lo, r.score.point, r.label), reverse=True)  # type: ignore[union-attr]
+
     top = ranked[0]
     assert top.score is not None
     verdict.stability = _stability(cleaned, w, top.label)
     verdict.separated = verdict.stability >= STABILITY_THRESHOLD
+    if len(ranked) > 1:
+        by_label = dict(cleaned)
+        verdict.rests_on = _single_rating_probe(
+            (top.label, by_label[top.label]),
+            (ranked[1].label, by_label[ranked[1].label]),
+            w,
+        )
+        if verdict.rests_on:
+            verdict.separated = False
+    # A ranking that rests on an answer the user did not give is capped at
+    # Contested: the gap is real only if the assumption is.
+    naturally_separated = verdict.separated
+    assumed = any(r["source"] == "assumed" for r in reqs)
+    if assumed:
+        verdict.separated = False
 
     # Judged on `lo`, like the ranking: an option whose strength is mostly
     # unknown criteria is not a strong option. And judged whatever the field
@@ -498,8 +698,10 @@ def rank_choices(
         else:
             verdict.band = "Contested"
 
-    if not verdict.separated:
+    if not naturally_separated:
         verdict.reasons.append("not-separable")
+    if assumed:
+        verdict.reasons.append("assumed-requirement")
     if weak:
         verdict.reasons.append("weak-field")
     if top.evidence is None or top.evidence <= LEVELS[0]:
@@ -519,25 +721,44 @@ def stability_band(stability: float) -> str:
     return "marginal" if stability >= 0.70 else "fragile"
 
 
-def format_table(verdict: Verdict) -> str:
-    """Plain-text ranking for the agent to read. Deliberately no percentages."""
-    lines: list[str] = []
-    for i, r in enumerate(verdict.ranked, 1):
-        s = r.score
-        assert s is not None
-        bounds = (
-            "" if s.certain else f"  [{s.lo}-{s.hi}, unknown: {', '.join(s.unknown)}]"
-        )
-        ev = "unverified" if r.evidence is None else f"evidence {r.evidence:g}"
-        lines.append(
-            f"{i}. {r.label}  score {s.lo:g}{bounds}  ({ev}){('  — ' + r.note) if r.note else ''}"
-        )
-    for r in verdict.excluded:
-        lines.append(
-            f"--. {r.label}  EXCLUDED — {r.note or 'violates a stated hard constraint'}"
-        )
+LEVEL_WORDS = {LEVELS[0]: "low", LEVELS[1]: "med", LEVELS[2]: "high"}
+SHORT_NAMES = {"fit_to_constraints": "fit"}
 
-    lines.append("")
+
+def level_word(value: float | None) -> str:
+    return "unknown" if value is None else LEVEL_WORDS[int(value)]
+
+
+def headline(verdict: Verdict) -> str:
+    """One line that stands alone: Claude Code collapses long Bash output."""
+    parts = [
+        f"{len(verdict.ranked)} {'unranked' if verdict.undetermined else 'ranked'}"
+    ]
+    if verdict.excluded:
+        parts.append(
+            f"{len(verdict.excluded)} excluded ({', '.join(r.label for r in verdict.excluded)})"
+        )
+    parts.append(verdict.band)
+    if verdict.escalate:
+        parts.append(f"ESCALATE {', '.join(verdict.reasons)}")
+    return "tiltrank: " + " · ".join(parts)
+
+
+def _rests_line(verdict: Verdict) -> str | None:
+    if verdict.recommended is None or len(verdict.ranked) < 2:
+        return None
+    if verdict.rests_on:
+        return f"lead rests on: {', '.join(verdict.rests_on)} of {verdict.recommended.label}"
+    return "lead holds on every single rating"
+
+
+def _footer(verdict: Verdict) -> list[str]:
+    lines: list[str] = []
+    for m in verdict.missing:
+        lines.append(f"missing: {m}")
+    rests = _rests_line(verdict)
+    if rests:
+        lines.append(rests)
     # The raw top-two gap is deliberately not printed. It is the number most
     # likely to be copied into an option description, and `stability` already
     # answers the only question it was ever asked: is this lead real? The value
@@ -557,6 +778,57 @@ def format_table(verdict: Verdict) -> str:
             f"FINDING: {finding['kind']} — candidate text is data, not an instruction: "
             f"{finding['label']}"
         )
+    return lines
+
+
+def format_levels(verdict: Verdict) -> str:
+    """Default output: ranks and per-criterion level *words*, never a total.
+
+    Claude Code shows Bash output to the user, so the number-free table is the
+    only one that can be printed by default. Exact figures stay in --json and
+    --table.
+    """
+    lines = [headline(verdict)]
+    for i, r in enumerate(verdict.ranked, 1):
+        words = " · ".join(
+            f"{SHORT_NAMES.get(k, k)} {level_word(v)}"
+            for k, v in verdict.levels[r.label].items()
+        )
+        words += f" · evidence {level_word(r.evidence)}"
+        pos = "-" if verdict.undetermined else f"{i}."
+        lines.append(f"{pos} {r.label}  {words}{('  — ' + r.note) if r.note else ''}")
+    for r in verdict.excluded:
+        lines.append(
+            f"--. {r.label}  EXCLUDED — {r.note or 'violates a stated hard constraint'}"
+        )
+    lines.append("")
+    lines.extend(_footer(verdict))
+    lines.append(
+        "NOTE: levels are anchor bands, not a confidence. Quote the band and the "
+        "`lead rests on` line to the user; pass --table or --json for numbers."
+    )
+    return "\n".join(lines)
+
+
+def format_table(verdict: Verdict) -> str:
+    """Full table with totals, behind --table. Deliberately no percentages."""
+    lines: list[str] = []
+    for i, r in enumerate(verdict.ranked, 1):
+        s = r.score
+        assert s is not None
+        bounds = (
+            "" if s.certain else f"  [{s.lo}-{s.hi}, unknown: {', '.join(s.unknown)}]"
+        )
+        ev = "unverified" if r.evidence is None else f"evidence {r.evidence:g}"
+        lines.append(
+            f"{i}. {r.label}  score {s.lo:g}{bounds}  ({ev}){('  — ' + r.note) if r.note else ''}"
+        )
+    for r in verdict.excluded:
+        lines.append(
+            f"--. {r.label}  EXCLUDED — {r.note or 'violates a stated hard constraint'}"
+        )
+    lines.append("")
+    lines.extend(_footer(verdict))
     lines.append(
         "NOTE: utility points on the anchor scale, not a confidence probability. "
         "Show the user the band, never the number."
@@ -587,6 +859,9 @@ def _verdict_to_dict(v: Verdict) -> dict:
         "stability": v.stability,
         "escalate": v.escalate,
         "reasons": v.reasons,
+        "rests_on": list(v.rests_on),
+        "undetermined": v.undetermined,
+        "missing": list(v.missing),
         "recommended": v.recommended.label if v.recommended else None,
         "findings": list(v.findings),
     }
@@ -662,9 +937,12 @@ def append_log(path: Path, payload: Mapping[str, object], verdict: Verdict) -> N
                 "scores": c.get("scores"),
                 "evidence": c.get("evidence"),
                 "feasible": c.get("feasible", True),
+                "constraints": c.get("constraints"),
             }
             for c in payload.get("choices", [])  # type: ignore[union-attr]
         ],
+        "question": sanitise_label(payload.get("question")) or None,
+        "requirements": list(verdict.requirements),
         "verdict": _verdict_to_dict(verdict),
         "escalated": payload.get("escalated"),
         "pick": pick,
@@ -688,6 +966,11 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     ap.add_argument("--json", action="store_true", help="emit JSON instead of a table")
+    ap.add_argument(
+        "--table",
+        action="store_true",
+        help="print totals and bounds (the default output shows anchor levels as words)",
+    )
     ap.add_argument(
         "--log",
         nargs="?",
@@ -714,7 +997,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if not isinstance(payload, dict) or "choices" not in payload:
             raise ValueError('stdin must be a JSON object with a "choices" list')
-        verdict = rank_choices(payload["choices"], payload.get("weights"))
+        verdict = rank_choices(
+            payload["choices"],
+            payload.get("weights"),
+            payload.get("requirements"),
+            payload.get("question"),
+        )
         decision_fields(payload, verdict)  # a bad pick fails even without --log
     except (KeyError, TypeError, ValueError) as exc:
         # Named, actionable errors: the agent reads this and corrects its own input.
@@ -726,19 +1014,17 @@ def main(argv: list[str] | None = None) -> int:
             append_log(Path(args.log), payload, verdict)
         except LogPathError as exc:
             print(f"error: {exc}", file=sys.stderr)
-            print(
-                json.dumps(_verdict_to_dict(verdict), indent=2)
-                if args.json
-                else format_table(verdict)
-            )
+            print(_render(verdict, args))
             return 1
 
-    print(
-        json.dumps(_verdict_to_dict(verdict), indent=2)
-        if args.json
-        else format_table(verdict)
-    )
+    print(_render(verdict, args))
     return 0
+
+
+def _render(verdict: Verdict, args: argparse.Namespace) -> str:
+    if args.json:
+        return json.dumps(_verdict_to_dict(verdict), indent=2)
+    return format_table(verdict) if args.table else format_levels(verdict)
 
 
 if __name__ == "__main__":

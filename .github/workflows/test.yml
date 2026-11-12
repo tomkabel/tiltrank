@@ -32,10 +32,10 @@ jobs:
       - name: ruff lint (rule set pinned here and in CLAUDE.md)
         run: |
           pip install ruff==0.17.3
-          ruff check --select E4,E7,E9,F .claude/skills/tiltrank/scripts/ .github/scripts/
+          ruff check --select E4,E7,E9,F .claude/skills/tiltrank/scripts/ .github/scripts/ docs/demo/
 
       - name: ruff format check (same pinned ruff, same paths)
-        run: ruff format --check .claude/skills/tiltrank/scripts/ .github/scripts/
+        run: ruff format --check .claude/skills/tiltrank/scripts/ .github/scripts/ docs/demo/
 
       - name: unit tests (validation, gating, ranking)
         run: python3 .claude/skills/tiltrank/scripts/test_rubric.py
@@ -48,6 +48,8 @@ jobs:
 
       - name: skill contract (SKILL.md wording vs checker rules)
         run: python3 .claude/skills/tiltrank/scripts/test_skill_contract.py
+      - name: demo contract (README hero lines are real rubric output)
+        run: python3 docs/demo/test_demo_contract.py
 
       - name: no stray imports outside the stdlib
         run: |
@@ -98,6 +100,8 @@ jobs:
         run: python .claude/skills/tiltrank/scripts/test_install_contract.py
       - name: skill contract (SKILL.md wording vs checker rules)
         run: python .claude/skills/tiltrank/scripts/test_skill_contract.py
+      - name: demo contract (README hero lines are real rubric output)
+        run: python docs/demo/test_demo_contract.py
       - name: import checker self-test
         run: python .github/scripts/test_stdlib_only.py
       - name: no stray imports outside the stdlib

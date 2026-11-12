@@ -1,0 +1,207 @@
+{
+  "meta": {
+    "engine": "c985ba1",
+    "date": "2026-11-11",
+    "model": "claude-sonnet-5-5",
+    "repeat": "5 (10 on single-box cases)",
+    "note": "re-run of the eight specified cases after QUOTE_NOT_THE_QUESTION"
+  },
+  "per_case": {
+    "broker-specified": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "Postgres SKIP LOCKED",
+        "Postgres SKIP LOCKED",
+        "Postgres SKIP LOCKED",
+        "Postgres SKIP LOCKED",
+        "Postgres SKIP LOCKED"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    },
+    "bundler-specified": {
+      "kind": "specified",
+      "hits": 3,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        null,
+        "tsup",
+        null,
+        "tsup",
+        "tsup"
+      ],
+      "bands": [
+        "Undetermined",
+        "Separated",
+        "Undetermined",
+        "Separated",
+        "Separated"
+      ]
+    },
+    "feature-flags-specified": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "Database table with an admin page",
+        "Database table with an admin page",
+        "Database table with an admin page",
+        "Database table with an admin page",
+        "Database table with an admin page"
+      ],
+      "bands": [
+        "Contested",
+        "Contested",
+        "Contested",
+        "Contested",
+        "Contested"
+      ]
+    },
+    "logs-specified": {
+      "kind": "specified",
+      "hits": 4,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "Stdout to the cluster collector",
+        "Stdout to the cluster collector",
+        "Stdout to the cluster collector",
+        "Stdout to the cluster collector",
+        null
+      ],
+      "bands": [
+        "Separated",
+        "Separated",
+        "Separated",
+        "Separated",
+        "Undetermined"
+      ]
+    },
+    "primary-key-specified": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "ULID",
+        "ULID",
+        "ULID",
+        "ULID",
+        "ULID"
+      ],
+      "bands": [
+        "Contested",
+        "Contested",
+        "Contested",
+        "Contested",
+        "Contested"
+      ]
+    },
+    "rate-limit-single-instance": {
+      "kind": "specified",
+      "hits": 10,
+      "graded": 10,
+      "runs": 10,
+      "tops": [
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket",
+        "In-process token bucket"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    },
+    "retry-specified": {
+      "kind": "specified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        "No automatic retries",
+        "No automatic retries",
+        "No automatic retries",
+        "No automatic retries",
+        "No automatic retries"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    },
+    "session-store-single-instance": {
+      "kind": "specified",
+      "hits": 10,
+      "graded": 10,
+      "runs": 10,
+      "tops": [
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory",
+        "In-process memory"
+      ],
+      "bands": [
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option",
+        "Only feasible option"
+      ]
+    }
+  },
+  "specified": {
+    "hits": 47,
+    "n": 50,
+    "wilson_lo": 0.838,
+    "wilson_hi": 0.979
+  },
+  "escalation_on_specified": {
+    "escalated": 30,
+    "n": 50,
+    "rate": 0.6
+  },
+  "single_box_failure": {
+    "failures": 0,
+    "n": 20,
+    "wilson_hi": 0.161
+  }
+}

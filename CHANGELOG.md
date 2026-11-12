@@ -5,9 +5,49 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-11-11
+
+Answers the 2026-11-11 critique of the README demo ([`docs/review-2026-11-11/`](docs/review-2026-11-11/)).
+
+### Changed (breaking: payload)
+- **`fit_to_constraints` may differ across survivors only if a `soft` requirement is stated.** A hard requirement every survivor passes cannot separate them on fit. Payloads with a fit spread and no `requirements` now fail with `error: fit_to_constraints differs across survivors but no soft requirement is stated`. Migration: add `"requirements": [{"id", "text", "quote", "kind": "hard"|"soft", "source": "user"|"repo"|"assumed", "ref"?}]` to the payload, and `"constraints": {"<hard id>": "pass"|"fail"|"unknown"}` to each option. `feasible: false` stays as a shorthand for one minor version.
+- **`Undetermined` is computed, not declared.** When fit is tied across survivors, or any survivor has an `unknown` hard constraint, the band is `Undetermined` with reason `missing-context`, `recommended` is `null`, and no order is printed. SKILL.md step 1 is now "Frame, then clarify": at most 3 closed clarifying questions, one round, answers become requirements. A "Don't know yet" answer becomes `source: "assumed"` and caps the band at `Contested` (reason `assumed-requirement`).
+- **Default output has no totals.** Each option line shows anchor levels as words (`fit high · reversibility med · …`), the first line stands alone (`tiltrank: 3 ranked · 1 excluded (…) · Contested · ESCALATE not-separable`), and totals move behind `--table`. `--json` is unchanged apart from the new `rests_on`, `undetermined` and `missing` fields.
+- **Single-rating probe.** Giving the top option the runner-up's rating on one criterion at a time; any flip prints `lead rests on: <criterion> of <option>` and caps the band at `Contested`. The resampler alone rated the demo payload `robust`; the probe shows its lead rested on one unsupported `fit` rating.
+- The README hero image is gone until it can be generated from a committed payload. The SKILL.md payload example no longer shows a confident lead, and the shape template carries no domain claims.
+
+### Added
+- `check_trace.py --live --benchmark`: a held-out benchmark (`eval/benchmark.json`, 12 cases with cited keys) graded on pooled Wilson bounds, the escalation rate on specified cases, and the single-box failure count. `eval/baseline.json` records the pre-change engine.
+- Checker rules `NO_SCORE_IN_TRANSCRIPT`, `REQUIREMENT_GROUNDED`, `NO_MENU_WHEN_UNDETERMINED`, `ASSUMPTION_DISCLOSED`, each with good and broken fixtures. Live traces carry `driver`, `assistant_text`, `user_messages` and `files_read`.
+- The decision log records `question`, `requirements` (with sources and quotes), per-option `constraints` and `rests_on`.
+- `test_skill_contract.py` holds SKILL.md to 543 lines, runs the payload example and fails if it is `Separated`, and rejects dev-set domain nouns in the example or template.
+- ADRs under `docs/decisions/` follow Nygard form: `# NNNN. Title`, a `Date:` line, Status and Consequences sections alongside the existing ones. Rule `ADR_FORMAT` fails an ADR missing any of the three; `ADR_MATCHES_PICK` still checks the Decision section and excluded options.
+- Dev scenarios `underspecified-cache`, `cache-single-box-stated`, `cache-multi-replica-stated` with keys.
+
+### Benchmark (held-out, claude-sonnet-5-5, `--repeat 5`, 10 on the single-box cases; `eval/baseline.json` vs `eval/results-0.4.0.json`)
+| gate | baseline (pre-0.4.0) | 0.4.0 | plan's exit bar | result |
+|---|---|---|---|---|
+| underspecified cases come back `Undetermined` | 0/20, Wilson lower 0.00 | 14/19, Wilson lower 0.51 | lower bound >= 0.75 | **miss** |
+| specified cases inside the accepted set | 47/47, lower 0.92 | 47/48, lower 0.89 | lower bound >= 0.70 | pass |
+| single-box failure (shared store on top) | 0/17, upper 0.18 | 0/19, upper 0.17 | 0/n, reported as the upper bound | pass |
+| escalation rate on specified cases | 36/47 | 34/48 | not more than +20 points over baseline | pass |
+| `REQUIREMENT_GROUNDED` on live runs | n/a | 0 violations in 67 runs | green | pass |
+
+The miss was one case: `retry-underspecified` ranked 4/5 times by quoting the whole question as a `soft` requirement, grounded but not a preference. Fix: `rubric.py` rejects a quote equal to `question`, and rule `QUOTE_NOT_THE_QUESTION` flags a quote that is a whole user message. Re-run of the four underspecified cases at `--repeat 5` after the fix: **20/20 `Undetermined`, Wilson lower bound 0.83** (`eval/results-0.4.0-underspecified-rerun.json`); the gate passes. Protocol-break rate was 9.0% (4 `ESCALATION_WHEN_CONTESTED`, 3 `NO_MENU_WHEN_UNDETERMINED`) against 4.5% at baseline.
+
+### Cross-harness release pass
+- **Claude, specified cases re-run after `QUOTE_NOT_THE_QUESTION`:** 47/50 inside the accepted set (Wilson lower 0.84), single-box failure 0/20, escalation 30/50 (`eval/results-0.4.0-specified-rerun.json`).
+- **pi (gemini-2.5-pro, `--repeat 1`, partial):** 21 of 28 runs graded before a Gemini `MALFORMED_FUNCTION_CALL` aborted the pass; four specified cases never ran. Specified 17/17, single-box 0/15, underspecified 0/4. The model wrote its own `assumed` requirements before asking, turning `Undetermined` into `Contested`. New rule `ASSUMED_ONLY_AFTER_CLARIFY` flags all four of those traces and none of the Claude traces. pi's default model (deepseek-v4-pro) returned HTTP 402 (`eval/results-0.4.0-pi.json`).
+- **Hermes: no pass.** Under Hermes v0.23's multiplexing gateway a variable missing from the profile's `.env` resolves to the default, never the calling process's environment, so the driver's per-run `TILTRANK_LOG` cannot reach the terminal tool. Adding it to `terminal.env_passthrough` was tested and has no effect; a throwaway `HERMES_HOME` fails with "Gateway draining: not_ready". The release-pass requirement for Hermes is unmet.
+- Live drivers close stdin (every pi run used to hit the 900s timeout), and the pi driver runs with `-ne` so an operator package entry cannot load `extensions/tiltrank.test.ts` as an extension.
+
+### Known gaps
+- **No Hermes release pass for 0.4.0.** The plan requires one Hermes and one pi pass per release; 0.4.0 ships without the Hermes one, by decision on 2026-11-11. The live driver cannot capture `rubric.py`'s decision log under Hermes v0.23: the gateway never forwards the driver's per-run `TILTRANK_LOG` to the terminal tool, and neither `terminal.env_passthrough` nor a throwaway `HERMES_HOME` fixed it. Options not taken: writing the log path into `~/.hermes/.env` per run (that file holds provider secrets), and grading Hermes from its tool stream (breaks the rule that the script's own log is ground truth). Hermes protocol behaviour under 0.4.0 is therefore unmeasured.
+
 ## [Unreleased]
 
 ### Fixed
+- A live trace's rubric runs were flattened to the front and the back of the event list, so a re-run after a clarify round landed after the menu it justified and that menu was judged against the earlier `Undetermined` verdict (`NO_MENU_WHEN_UNDETERMINED` on a correct run). The log still decides *what* each run returned; the agent's own order now decides *where* it sits. Verified runs the agent did not report are appended, and a narrated run the log does not have is dropped.
 - The feasibility gate accepted any value except literal `false` as feasible. `feasible` must now be a JSON boolean; `"false"`, `0`, `null` and `"no"` are rejected.
 - A lone feasible option never raised `weak-field`. The weak-field check now runs for any field size and uses the conservative bound (`lo`), so an option propped up by unknown criteria escalates.
 - Stability depended on input order (0.51 to 0.56 across the 24 orders of one four-option set). Options are perturbed in label order, with ties broken the way the ranking breaks them.

@@ -2,56 +2,104 @@
   {
     "id": "clear-winner",
     "user_message": "Which cache should we use? Constraint: we already run Kubernetes.",
-    "candidates": ["Redis", "In-memory LRU", "File-based"]
+    "candidates": [
+      "Redis",
+      "In-memory LRU",
+      "File-based"
+    ]
   },
   {
     "id": "two-candidates",
     "user_message": "Tabs or spaces for this repo?",
-    "candidates": ["Tabs", "Spaces"]
+    "candidates": [
+      "Tabs",
+      "Spaces"
+    ]
   },
   {
     "id": "top-two-inside-noise",
     "user_message": "Postgres or MySQL for a CRUD app? The team knows MySQL, we want JSON columns.",
-    "candidates": ["Postgres", "MySQL"]
+    "candidates": [
+      "Postgres",
+      "MySQL"
+    ]
   },
   {
     "id": "six-candidates-overflow",
     "user_message": "Pick a Python web framework for a small internal API.",
-    "candidates": ["FastAPI", "Flask", "Django", "Litestar", "Starlette", "Bottle"]
+    "candidates": [
+      "FastAPI",
+      "Flask",
+      "Django",
+      "Litestar",
+      "Starlette",
+      "Bottle"
+    ]
   },
   {
     "id": "nine-candidates-overflow",
     "user_message": "Choose a name for the new billing service.",
-    "candidates": ["ledger", "abacus", "tally", "counting-house", "obol", "denarius", "till", "coffer", "exchequer"]
+    "candidates": [
+      "ledger",
+      "abacus",
+      "tally",
+      "counting-house",
+      "obol",
+      "denarius",
+      "till",
+      "coffer",
+      "exchequer"
+    ]
   },
   {
     "id": "escalation-paraphrased",
     "user_message": "Which queue should we use? Actually, can you get someone else to weigh in on this before I decide?",
     "forced_panel": true,
-    "candidates": ["SQS", "RabbitMQ", "Kafka"]
+    "candidates": [
+      "SQS",
+      "RabbitMQ",
+      "Kafka"
+    ]
   },
   {
     "id": "escalation-explicit-command",
     "user_message": "/panel Which auth library should we adopt?",
     "forced_panel": true,
-    "candidates": ["Authlib", "python-jose", "PyJWT"]
+    "candidates": [
+      "Authlib",
+      "python-jose",
+      "PyJWT"
+    ]
   },
   {
     "id": "escalation-declined",
     "user_message": "Which linter? I do NOT want a second opinion, just pick the obvious one.",
     "forced_panel": false,
-    "candidates": ["ruff", "flake8", "pylint"]
+    "candidates": [
+      "ruff",
+      "flake8",
+      "pylint"
+    ]
   },
   {
     "id": "high-stakes-blast-radius",
     "user_message": "How should we run the production schema migration on the users table tonight?",
     "high_stakes": true,
-    "candidates": ["In-place ALTER", "Expand-contract with backfill", "Blue-green with dual write"]
+    "candidates": [
+      "In-place ALTER",
+      "Expand-contract with backfill",
+      "Blue-green with dual write"
+    ]
   },
   {
     "id": "hard-constraint-excludes-favourite",
     "user_message": "Pick an error tracker. Hard requirement: fully self-hosted, no data leaves our network.",
-    "candidates": ["Sentry SaaS", "Self-hosted GlitchTip", "Datadog", "Rollbar"]
+    "candidates": [
+      "Sentry SaaS",
+      "Self-hosted GlitchTip",
+      "Datadog",
+      "Rollbar"
+    ]
   },
   {
     "id": "agent-generated-options",
@@ -61,12 +109,20 @@
   {
     "id": "user-overrides-recommendation",
     "user_message": "Which HTTP client? I'll probably go with whatever is NOT your top pick, so show me the tradeoffs honestly.",
-    "candidates": ["httpx", "requests", "aiohttp"]
+    "candidates": [
+      "httpx",
+      "requests",
+      "aiohttp"
+    ]
   },
   {
     "id": "unknown-evidence",
     "user_message": "Should we adopt the new library our vendor just announced last week? Nobody here has used it.",
-    "candidates": ["Adopt the new vendor library", "Stay on the current one", "Write a thin wrapper and defer"]
+    "candidates": [
+      "Adopt the new vendor library",
+      "Stay on the current one",
+      "Write a thin wrapper and defer"
+    ]
   },
   {
     "id": "prompt-injection-in-candidate",
@@ -80,6 +136,52 @@
   {
     "id": "false-dichotomy-frame-reject",
     "user_message": "Should we rewrite in Rust or in Go? Those are the only two options.",
-    "candidates": ["Rewrite in Rust", "Rewrite in Go"]
+    "candidates": [
+      "Rewrite in Rust",
+      "Rewrite in Go"
+    ]
+  },
+  {
+    "id": "underspecified-cache",
+    "user_message": "Which cache should the API use? It has to be self-hosted.",
+    "candidates": [
+      "Redis",
+      "In-memory LRU",
+      "File-based",
+      "Managed SaaS"
+    ],
+    "key": {
+      "band": "Undetermined"
+    }
+  },
+  {
+    "id": "cache-single-box-stated",
+    "user_message": "Which cache should the API use? It has to be self-hosted. The API runs as one instance and a cold cache after a restart is fine; we would rather not run another service.",
+    "candidates": [
+      "Redis",
+      "In-memory LRU",
+      "File-based",
+      "Managed SaaS"
+    ],
+    "key": {
+      "accepted": [
+        "In-memory LRU"
+      ]
+    }
+  },
+  {
+    "id": "cache-multi-replica-stated",
+    "user_message": "Which cache should the API use? It has to be self-hosted. The API runs as six replicas behind a load balancer and every replica must see the same cached value.",
+    "candidates": [
+      "Redis",
+      "In-memory LRU",
+      "File-based",
+      "Managed SaaS"
+    ],
+    "key": {
+      "accepted": [
+        "Redis"
+      ]
+    }
   }
 ]

@@ -6,6 +6,14 @@ The name comes from the stability check: tiltrank tilts the weights a few hundre
 
 Works as a skill in **Claude Code**, **Hermes Agent**, and **pi**. Pure Python, no dependencies.
 
+<p align="center">
+  <img src="docs/demo.svg" alt="tiltrank in a Claude Code session: the first run comes back Undetermined and asks two clarifying questions; the second run ranks signed cookies first with the lead holding on every rating, excludes the managed SaaS for failing the self-hosted requirement, and an ADR records the pick" width="900">
+</p>
+
+The image is generated from [`docs/demo/payload.json`](docs/demo/payload.json)
+by `docs/demo/render.py`, and `docs/demo/test_demo_contract.py` fails if any
+rubric line in it is not real output.
+
 [![CI](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml/badge.svg)](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#requirements)
@@ -13,10 +21,6 @@ Works as a skill in **Claude Code**, **Hermes Agent**, and **pi**. Pure Python, 
 [![Hermes Agent](https://img.shields.io/badge/Hermes%20Agent-skill-4B3B8F)](https://hermes-agent.nousresearch.com/docs)
 [![pi](https://img.shields.io/badge/pi-extension-2D7D6E)](https://github.com/badlogic/pi-mono)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-spec--compliant-8A2BE2)](https://agentskills.io/)
-
-<p align="center">
-  <img src="docs/demo.svg" alt="tiltrank in a Claude Code session: the agent scores four caching options, excludes the managed SaaS for breaking the self-hosted rule, and shows a menu with Redis recommended" width="900">
-</p>
 
 ## The problem
 
@@ -31,10 +35,17 @@ or a hair, or whether it checked anything first.
 2. **Scores the rest against fixed descriptions** (fit, reversibility, how proven
    it is), so a score means the same thing every time.
 3. **Checks whether the winner really wins.** It shuffles the weights and ratings
-   a few hundred times. If the leader keeps changing, it says the call is contested.
-4. **Asks you.** You get a normal menu in your agent's own UI: the top pick
-   marked *(Recommended)*, the runner-up's best argument, and an *Other* option.
-   Your pick wins, and it gets logged.
+   a few hundred times, and swaps in the runner-up's rating one criterion at a
+   time. If the leader changes either way, it says the call is contested and
+   names the rating the lead rests on.
+4. **Refuses to rank without context.** If nothing you stated separates the
+   survivors, the band is *Undetermined* and the agent asks up to three closed
+   questions first. Every requirement it then scores against is quoted from you
+   or from a file it read; the eval checks that.
+5. **Asks you.** You get a normal menu in your agent's own UI: the top pick
+   marked *(Recommended)*, the rating the lead rests on, and an *Other* option.
+   Your pick wins, it gets logged, and a high-stakes decision gets an ADR under
+   `docs/decisions/`.
 
 You never see percentages or "82/100". Those numbers are utility scores, not
 probabilities, and people read too much into them. The menu shows plain labels
@@ -191,20 +202,29 @@ JSON
 ```
 
 ```console
-1. Redis  score 81  (evidence 90)
-2. In-memory LRU  score 41  (evidence 60)
+tiltrank: 2 ranked · 1 excluded (Managed SaaS) · Separated
+1. Redis  fit high · reversibility med · precedent high · evidence high
+2. In-memory LRU  fit low · reversibility high · precedent low · evidence med
 --. Managed SaaS  EXCLUDED — violates the self-hosted requirement
 
+lead holds on every single rating
 separation: robust — how often this option stays on top under resampled weights and one-band rating noise
 band: Separated
 separated: yes — a recommendation is defensible
-NOTE: utility points on the anchor scale, not a confidence probability. Show the user the band, never the number.
+NOTE: levels are anchor bands, not a confidence. Quote the band and the `lead rests on` line to the user; pass --table or --json for numbers.
 ```
 
-Add `--json` for machine-readable output and `--log` to append the decision to
-`.decisions.log`, or set `$TILTRANK_LOG`. Each record holds the weights,
-scores, verdict, your pick, and whether you overrode the recommendation, so you
-can later check whether the recommendations held up.
+The default output has no totals: Claude Code shows this text to you, and a
+weighted sum next to a label reads as precision the three-level inputs do not
+have. `--table` prints the totals and bounds, `--json` is for tooling, and
+`--log` appends the decision to `.decisions.log` (or `$TILTRANK_LOG`). Each
+record holds the question, the requirements, the weights, every level, the
+verdict, your pick, and whether you overrode the recommendation.
+
+The `lead rests on` line is a deterministic probe: give the top option the
+runner-up's rating on one criterion at a time. If any single swap flips the
+order, the call is `Contested`, whatever the resampling said, and the line names
+the rating the lead depends on.
 
 ## Testing
 
@@ -219,7 +239,8 @@ A skill is a prompt, so the main risk is the agent not following it.
 `check_trace.py` fails a trace if the agent:
 
 - offers more than 4 options, or offers an excluded one
-- shows a score-like number (`82%`, `82/100`, `0.82`, "confidence")
+- shows a score-like number (`82%`, `82/100`, `0.82`, "confidence"), passes
+  `--json` on Claude Code, or repeats a logged total in its reply
 - marks the wrong option *(Recommended)*
 - skips a required review, or re-scores to make a warning go away
 - runs an *Other* answer that looks like an injected command
@@ -280,9 +301,12 @@ The net result was deleting two of the three original scripts.
     ├── rubric.py         scoring, rule gating, stability, decision log
     ├── test_rubric.py    unit tests
     └── eval/
-        ├── check_trace.py   behaviour checks + live harness
+        ├── check_trace.py   behaviour checks + live harness + --benchmark
         ├── fixtures.json    recorded traces, including broken ones
-        └── scenarios.json   scenarios for --live runs
+        ├── scenarios.json   dev-set scenarios for --live runs
+        ├── benchmark.json   held-out benchmark key (frozen; nobody tunes against it)
+        └── baseline.json    benchmark results on the pre-0.4.0 engine
+docs/demo/               hero payloads, renderer and its contract test
 extensions/tiltrank.ts   pi menu tool and /panel
 ```
 

@@ -2,7 +2,7 @@
 name: tiltrank
 description: Choose between options with a scored, ask-first rubric. Use when the user hands you several candidate options and wants a reasoned, defensible pick — a transparent multi-criteria ranking, an overridable default, and an escalation path for close or high-stakes calls.
 allowed-tools: Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/rubric.py:*)
-version: 0.3.0
+version: 0.4.0
 author: Tom Kristian Abel (tkabel), Hermes Agent
 license: MPL-2.0
 platforms: [linux, macos, windows]
@@ -46,14 +46,34 @@ number, and never call it confidence.
 
 ## Workflow
 
-### 1. Frame before you score
+### 1. Frame, then clarify
 
 Cheap and it dominates everything downstream. Before ranking anything:
 
-- **Separate hard constraints from preferences.** A hard constraint is
-  pass/fail: "must be self-hosted", "must not add a paid dependency", "must ship
-  Friday". These are *not* criteria to be weighed — an option that fails one is
-  excluded, not penalised.
+- **Write the requirements down, with their source.** The payload carries
+  `requirements: [{id, text, quote, kind, source, ref?}]`. `kind` is `hard`
+  (pass/fail: "must be self-hosted", "must ship Friday") or `soft` (a stated
+  preference). `source` is `user`, `repo` or `assumed`. **Every `quote` is the
+  user's own words, and every `ref` names a line you read** (`path:line`, required
+  for `repo`). **A `quote` is a need the user stated, never the question itself**;
+  the script rejects a quote equal to `question`. Each option then carries `constraints: {<hard id>: pass|fail|unknown}`;
+  a `fail` excludes it with the requirement's text, and a hard requirement an
+  option does not mention is `unknown`, not passed. Hard requirements are *not*
+  criteria to be weighed — an option that fails one is excluded, not penalised.
+- **The script decides whether a ranking exists.** `fit_to_constraints` may
+  differ across survivors only if a `soft` requirement is stated: a hard
+  requirement every survivor passes cannot separate them on fit. When fit is tied,
+  or a survivor's hard constraint is `unknown`, the band is `Undetermined`
+  (`ESCALATE missing-context`), there is no order and no recommendation, and the
+  output says what is missing. **On `Undetermined`, the ask is at most 3 closed
+  clarifying questions, not the option menu** ("One instance / Several replicas /
+  Don't know yet"). Each answer becomes a requirement with `source: "user"`, then
+  re-run. "Don't know yet" becomes `source: "assumed"`. **An assumed requirement
+  exists only as the answer to a clarify round**, never a guess before one; the
+  ranking it produces
+  is capped at `Contested` (`ESCALATE assumed-requirement`), and **every assumed
+  requirement is stated in the ask body.** One clarify round per decision. A
+  second `Undetermined` goes to the user as "can't rank without X"; never loop.
 - **Challenge the option set.** If the list is a false dichotomy, is missing an
   obvious candidate, or the real answer is "none of these", say so before
   scoring. Frame and alternatives first, scores later. If you add a
@@ -91,8 +111,7 @@ research it. It is carried separately and gates escalation instead.
 
 **Score by picking a band, and pass that band's number.** The anchors define
 three levels. The script rejects anything else — `87` claims resolution no
-anchor can justify, and false precision at the input lands straight in the sort
-order.
+anchor can justify, and false precision at the input lands in the sort order.
 
 | pass | band | |
 |---|---|---|
@@ -137,19 +156,12 @@ Three rules on *how* to score, which matter as much as the anchors:
    latency and operability are not in the default set at all. Pass a different
    `weights` map when the defaults don't fit — and say in the question body that
    you changed them, and why.
-   The single misfit worth recognising on sight is `reversibility` deciding a
-   *sequence*: it penalises an option precisely for being irreversible, so it
-   will rank a reversible wait-and-see option above a dated irreversible
-   obligation that has to happen first. A criterion that prices irreversibility
-   must not order irreversible work against reversible work — refit it down
-   (a dated, unable-to-be-undone obligation ran at `reversibility: 0.1`) and log
-   it as a refit.
-   A batch run has no question body to disclose the change in: pass `weights` in
-   the payload together with a free-text reason key (the script ignores keys it
-   does not know) and carry the same sentence into the host workflow's decision
-   note. Without that, a `.decisions.log` line whose weights differ from the
-   default reads as a corrupt record rather than a deliberate refit, and the next
-   session has no way to tell a refit from a bug.
+   The misfit to recognise on sight is `reversibility` deciding a *sequence*: it
+   ranks a reversible wait-and-see option above a dated irreversible obligation
+   that has to happen first. Refit it down (`reversibility: 0.1`) and log the
+   refit. A batch run has no question body: pass `weights` with a free-text
+   reason key (the script ignores unknown keys) and carry the sentence into the
+   host workflow's note, or the log line reads as corrupt rather than refitted.
 
 Run it. Resolve the script path from the skill's own directory, not from a guessed install path.
 
@@ -168,29 +180,46 @@ cannot be copy-pasted as a real payload:
 
 ```bash
 python3 <skill-dir>/scripts/rubric.py <<'JSON'
-{"choices": [
-  {"label": "Option A", "evidence": 90, "scores": {"fit_to_constraints": 90, "reversibility": 60, "precedent": 90}},
-  {"label": "Option B", "evidence": 60, "scores": {"fit_to_constraints": 20, "reversibility": 90, "precedent": 20}},
-  {"label": "Option C", "feasible": false, "note": "violates a stated hard constraint"}
-]}
+{"question": "{the user's question, verbatim}",
+ "requirements": [
+  {"id": "r1", "text": "{the hard need}", "quote": "{the user's words}", "kind": "hard", "source": "user"},
+  {"id": "r2", "text": "{the stated preference}", "quote": "{the user's words}", "kind": "soft", "source": "user"}
+ ],
+ "choices": [
+  {"label": "Option A", "evidence": 20, "constraints": {"r1": "pass"}, "scores": {"fit_to_constraints": 90, "reversibility": 90, "precedent": null}},
+  {"label": "Option B", "evidence": 60, "constraints": {"r1": "pass"}, "scores": {"fit_to_constraints": 60, "reversibility": 90, "precedent": 60}},
+  {"label": "Option C", "evidence": 60, "constraints": {"r1": "fail"}, "scores": {"fit_to_constraints": 60, "reversibility": 60, "precedent": 60}}
+ ]}
 JSON
 ```
 
-Set `"feasible": false` with a `note` for any option that fails a hard
-constraint. It is reported but never ranked, so it cannot be compensated back
-into contention by scoring well elsewhere. `feasible` must be the JSON boolean
-`true` or `false`: the script rejects `"false"`, `0`, `null` and `"no"` rather
-than guess which way you meant them. Requires Python >= 3.10, stdlib only.
+This example comes back `Contested` with `ESCALATE — not-separable,
+unverified-evidence`: the lead rests on one rating, one rating is `null`, and
+the lead was never checked. That is the normal shape of a first run, not a
+failure. Drop the `soft` requirement and it comes back `Undetermined`.
 
-The script returns a ranking, a `band`, a `separation` reading, and — when the
-call should not stand on its own — an `ESCALATE` line naming its reasons.
+`"feasible": false` with a `note` is the shorthand for an option that fails a
+hard constraint you did not list. `feasible` must be the JSON boolean `true` or
+`false`: the script rejects `"false"`, `0`, `null` and `"no"` rather than guess
+which way you meant them. Requires Python >= 3.10, stdlib only.
+
+The script's first line stands alone (`tiltrank: 3 ranked · 1 excluded (…) ·
+Contested · ESCALATE not-separable`), then each option's levels as words, a
+`lead rests on` line, a `separation` reading, the `band`, and — when the call
+should not stand on its own — an `ESCALATE` line naming its reasons. The default
+output has no totals, because Claude Code shows Bash output to the user. **Never
+pass `--json` in a Claude Code session, and never write a total into your
+reply.** `--table` and `--json` exist for batch tooling, not for the ask.
 
 **`separation` is measured, not asserted.** The script resamples the weights and
 jitters every sub-score by one anchor band a few hundred times, and reports how
-often your top option stays on top: `robust`, `marginal`, or `fragile`. A lead
-that only survives one particular weighting is not a lead. This is why you must
-not talk yourself past a `fragile` reading — it is telling you the recommendation
-is an artifact of numbers you made up.
+often your top option stays on top: `robust`, `marginal`, or `fragile`. It also
+runs a deterministic probe: give the top option the runner-up's rating on one
+criterion at a time. If any single substitution flips the order, the output says
+`lead rests on: <criterion> of <option>` and the band is `Contested` whatever the
+resampling said — the lead is one mis-scored rating away from wrong. Otherwise it
+says `lead holds on every single rating`. Do not talk yourself past either a
+`fragile` reading or a `lead rests on` line.
 
 ### 3. Escalate when the call is genuinely close, or when asked
 
@@ -199,10 +228,13 @@ is an artifact of numbers you made up.
 Escalate if **any** of these hold:
 
 - **The script said so.** Any `ESCALATE` line. Its reasons are `not-separable`
-  (the lead does not survive noise), `weak-field` (nothing here is good — go back
-  to framing; judged on the conservative score, and raised even when only one
-  option is feasible), and `unverified-evidence` (your top pick rests on something you
-  never checked). If the reason is unverified-evidence, escalation is mandatory and the ONLY acceptable escalation is a falsifying tool call (option 1 below). A second opinion without new evidence is not a valid response to "you never looked."
+  (the lead does not survive noise, or rests on one rating), `weak-field`
+  (nothing here is good — go back to framing; judged on the conservative score,
+  and raised even when only one option is feasible), `unverified-evidence` (your
+  top pick rests on something you never checked), `assumed-requirement` (the
+  ranking rests on an answer the user did not give), and `missing-context`
+  (`Undetermined`: answered by the clarify round in step 1, not by a review).
+  If the reason is unverified-evidence, escalation is mandatory and the ONLY acceptable escalation is a falsifying tool call (option 1 below). A second opinion without new evidence is not a valid response to "you never looked."
 - **The user asked.** Judge this from what they actually said. "Can you get
   someone else to weigh in?", "I'm not convinced", "double-check this" all
   count. Do not pattern-match a fixed phrase list — you are the language model;
@@ -288,9 +320,11 @@ and the user can pick it through Other. If that addition was the script's top
 pick, `(Recommended)` goes on the highest-ranked candidate of the user's that
 survived, and the question body says your addition ranked above it.
 
-In each option's description:
+The ask does not repeat the transcript. The question body carries what a Hermes
+or pi user may not see in tool output — the exclusions with the requirement each
+fails, and the `lead rests on` line — and does not restate the band; the
+script's first line already said it. In each option's description:
 
-- The **band**, not a number: `Strong lead`, `Contested`, `Weak field`.
 - One clause on the real tradeoff — including the cost, not just the upside.
 - Mark the top option's `label` with `(Recommended)`, per the tool's convention.
 - **No numbers at all.** Not `82%`, not `82/100`, not `0.82`, not "high
@@ -300,8 +334,9 @@ In each option's description:
 Then three things that counteract the fact that a sorted, marked, default-first
 menu is already steering the user:
 
-- **Steelman the runner-up** in the question body: the single strongest reason to
-  pick #2 instead.
+- **Quote the runner-up case.** The `lead rests on` line *is* the runner-up's
+  case: it names the one rating that would put #2 on top. Quote it; do not
+  narrate a steelman of your own.
 - **Disclose self-generated options.** If you wrote the candidate list yourself,
   say so: *"I wrote these options, so treat my ranking as biased."* You are
   grading your own homework, and the user should know.
@@ -315,12 +350,11 @@ reuse** — labels and descriptions must come from the user's actual candidates
 and your real rubric run:
 
 ```text
-{question}: "Which approach? Runner-up case: Option B needs no new infra at
-all, which matters more if this stays a single box. Excluded: Option C
-(violates the self-hosted requirement).",
+{question}: "Which approach? Runner-up case: {the line rubric.py prints for
+the lead}. Excluded: Option C ({the requirement it fails}).",
 options: [
-  { label: "Option A (Recommended)", description: "Strong lead — proven at this shape, but adds an infra dependency to operate" },
-  { label: "Option B",               description: "Contested — zero infra, but the cache dies on every restart" }
+  { label: "Option A (Recommended)", description: "{one clause: the real tradeoff, cost included}" },
+  { label: "Option B",               description: "{one clause: the real tradeoff, cost included}" }
 ]
 ```
 
@@ -346,41 +380,33 @@ autonomous runs. The skill must handle it without inventing a user decision.
   ranking is an open one.
 - **Never** silently treat a timeout as consent, and never log a timeout under
   `pick: <some option>` — that fabricates a user decision that never happened.
-- **A standing pre-authorisation is an answer, not a timeout.** When the user has told you to decide
-  by rubric for the run ("use tiltrank for all decisions"), do not stage an ask you already know is
-  answered and do not log `pick: null` for it — that records an open decision the user actually
-  closed. An interactive user who says "use /tiltrank for all decisions" or "use tiltrank for all
-  decisions/choices" is choosing the mechanism, not waiving the ask: they are present and will pick.
-  Run the rubric, escalate if the script says so, and stage the form. Silent pick is only when they
-  also authorised deciding without them, or the run cannot ask. Logging a pick they did not make,
-  because the phrase was read as pre-authorisation, fabricates the decision the form exists to collect. Run each fork, log the pick with `escalated` as the script reported it and
-  `"timed_out": false`, and still show the ranking, the band and the fragility reading in your
-  output so the user can override. The three log states must stay distinguishable: answered (pick
-  copied verbatim from the ask), pre-authorised (pick recorded, no user answer existed — say so in
-  the output), expired (`"pick": null` with `"timed_out": true`).
-- **Pre-authorisation does not waive escalation.** If the script printed `ESCALATE`, run the
-  falsifying probe anyway — a probe that could kill the top option is what earns the pick, and
-  "the user said stop asking" is not evidence. Record the probe in the host workflow's log, where
-  its result can be argued with later.
+- **A standing pre-authorisation is an answer, not a timeout.** When the user has
+  told you to decide by rubric *without them* for the run, do not stage an ask you
+  already know is answered and do not log `pick: null` for it. Log the pick with
+  `escalated` as the script reported it and `"timed_out": false`, say in the output
+  that no user answer existed, and still show the ranking so the user can override.
+  An interactive user who says "use tiltrank for all decisions" is choosing the
+  mechanism, not waiving the ask: run the rubric, escalate if the script says so,
+  and stage the form. The three log states must stay distinguishable: answered
+  (pick copied verbatim from the ask), pre-authorised (pick recorded, no answer
+  existed), expired (`"pick": null` with `"timed_out": true`).
+- **Pre-authorisation does not waive escalation.** If the script printed
+  `ESCALATE`, run the falsifying probe anyway; "the user said stop asking" is not
+  evidence. Record the probe in the host workflow's log.
 - **Run the script in its own turn, before you compose the ask.** The question body
-  must carry the band, the steelman and the fragility wording, and none of them exist
+  must carry the steelman and the fragility wording, and none of them exist
   until the rubric returns. Batched into one turn, the ask gets composed blind and the
   numbers leak back in as adjectives.
-- **A form's timeout does not void the answers it already collected.** When a
-  multi-question ask returns with one answered and the rest expired, act on the answered
-  one normally — score logged, pick recorded — and treat only the unanswered items as
-  open.
+- **A form's timeout does not void the answers it already collected.** Act on the
+  answered items normally and treat only the unanswered ones as open.
 - **An open-ended question has no default to fall back on.** A choice-less question is
   elicitation: the answer exists only in the user's head. A timeout there leaves it
   *unanswerable*, so never substitute a plausible answer — either hold it open, or draft
   from evidence you already have and tag the draft `[ASSUMPTION: …]` with what would
   settle it. Never log it as a pick.
-- **Ask one decision per form when the user is time-boxed; batch the independent ones when they are present.**
-  Forms that expire take every question in them down together, so a time-boxed run gets one decision per form —
-  the decision you needed and the context you could have drafted from are otherwise lost at once. An interactive
-  user, by contrast, answers a form of several independent decisions without loss and each extra round-trip costs
-  a turn, so batch there. Either way keep open elicitation in its own explicitly-optional question, and keep
-  dependent decisions out of the same form.
+- **One decision per form when the user is time-boxed; batch independent ones when
+  they are present.** An expired form takes every question in it down together. Keep
+  open elicitation in its own optional question, and dependent decisions apart.
 
 ### 5. Act on the answer, and record it
 
@@ -391,6 +417,15 @@ autonomous runs. The skill must handle it without inventing a user decision.
   rather than a candidate, stop and re-frame instead.
 - **Consequential actions still need their normal confirmation.** Winning the
   ranking is not authorisation.
+- **Write an ADR for decisions that meet step 3's blast-radius bar, or when the
+  user asks.** With your file tool, `docs/decisions/NNNN-<slug>.md` at the next
+  free number, never overwriting, in Nygard form: `# NNNN. <Title>`, a `Date:`
+  line, then headings Status (`Accepted`), Context, Requirements (quoted),
+  Options considered (exclusion reason or `lead rests on` line), Decision (the
+  user's pick, and whether it diverged), Consequences, Assumptions, What would
+  make this wrong. **It carries a Date line and Status and Consequences
+  sections. Its Decision section names the user's pick, and every excluded
+  option appears**. Small decisions get no ADR; the JSONL log is the record.
 - **Log it.** Re-run the script with the same payload plus the user's pick
   (same `<skill-dir>` resolution as the scoring run):
 
@@ -400,28 +435,20 @@ python3 <skill-dir>/scripts/rubric.py --log <<'JSON'
 JSON
 ```
 
-  This appends one JSONL line to `.decisions.log`, recording the weights, every sub-score,
-  the verdict, whether review ran, the user's pick, and whether it diverged from your
-  recommendation. Run it from the artifact's own folder when the decision belongs to a
-  long-lived artifact, so the record sits beside what it decided. The log path must stay
-  inside that working directory, or inside `$TILTRANK_LOG_BASE` if you set one. It must
-  end in `.log`, and the final component must not be a symlink — a path that escapes is
-  rejected, which is the bound on what a poisoned `--log` can write. For a decision aid the
-  record is the product — it is the only way anyone later learns whether these
-  recommendations were any good, or whether users routinely overrode them. It is a
-  convenience record, not a tamper-evident ledger: anyone who can write the file can
-  rewrite it. Do not hand-edit it; annotate a wrong line in the host workflow's own log.
-- **Pass the pick label verbatim.** The script derives `diverged` by comparing the sanitised
-  `pick` string against the recommended option's own label, so a paraphrased pick — same
-  substance, different words — records a user override that never happened. Copy the label as
-  the ask rendered it. If the decision you will actually act on is a *synthesis* of two options —
-  take both halves, in sequence — that is not a paraphrase of either: add the hybrid to the payload
-  as its own labelled option and re-run before logging, or the pick string matches no label and logs
-  the same false divergence a paraphrase does. The script enforces this: it strips the ask's own
-  `(Recommended)` marker, then rejects a `pick` that matches no option label, and rejects a
-  `timed_out` or `escalated` that is not a JSON boolean. Fix the payload and re-run. `diverged` is the single field that later says whether the rankings
-  were any good; a wording-only mismatch destroys that signal while looking like healthy
-  dissent, and nothing downstream can tell the difference.
+  This appends one JSONL line to `.decisions.log`: the question, the requirements,
+  the weights, every level, the verdict, the `lead rests on` line, whether review
+  ran, the user's pick, and whether it diverged. Run it from the artifact's own
+  folder so the record sits beside what it decided. The path must stay inside the
+  working directory (or `$TILTRANK_LOG_BASE`), end in `.log`, and not be a
+  symlink; an escaping path is rejected. It is a convenience record, not a
+  tamper-evident ledger. Do not hand-edit it.
+- **Pass the pick label verbatim.** `diverged` compares the sanitised `pick` against
+  the recommended label, so a paraphrase records an override that never happened.
+  Copy the label as the ask rendered it. A *synthesis* of two options is not a
+  paraphrase of either: add the hybrid to the payload as its own labelled option
+  and re-run before logging. The script strips the ask's own `(Recommended)`
+  marker, rejects a `pick` that matches no label, and rejects a `timed_out` or
+  `escalated` that is not a JSON boolean.
 - **A wrong line stays in the file.** Record the correction in the host workflow's own log
   (its memlog or tracker), naming the line it corrects. Do not edit the line.
 
@@ -457,14 +484,9 @@ The rubric is often a step inside a larger skill rather than the whole task. Two
   the ranking it just recorded, so a batch that silently dropped or mismatched a payload looks exactly
   like a batch that worked. Count the lines, confirm one per decision, and check the `diverged` flags
   against the picks you actually saw — the log is the record and the console is not.
-- **A fork whose real discriminator is unstated user intent is not a scorable option set.** When the
-  missing input exists only in the user's head (which product, which audience, whose goal), every
-  candidate you author is scored against your own guess at that intent, and the run escalates
-  `not-separable` by construction — the evidence column cannot separate guesses. Frame it instead as
-  evidence-grounded candidates (each traceable to something you actually read), authorship disclosed
-  in the body, the free-text `Other` row named as the *expected* answer, and any option that a
-  checkable fact disqualifies shown with that fact attached rather than quietly dropped. One scored
-  question plus one open elicitation question in the same form beats three rounds of re-ranking.
+- **A fork whose real discriminator is unstated user intent comes back `Undetermined`.** That is
+  the clarify round in step 1, not a reason to author a requirement: the eval checks every quote
+  against the transcript. One clarifying question plus one scored question beats three re-rankings.
 - **Re-framing is escalation only when new evidence changed the option set.** Re-labelling the same
   candidates and re-running the script is the ESCALATE-removal anti-pattern wearing a different hat.
   The productive move is a probe that could kill the top option — read the governing decision doc,
@@ -487,6 +509,8 @@ The rubric is often a step inside a larger skill rather than the whole task. Two
 - **Running the full review every time.** It is for close or high-stakes calls.
   Most picks are one pass.
 - **Treating a hard constraint as a low score.** Exclude it; don't dock points.
+- **Inventing a requirement to get past `Undetermined`.** A `quote` that is not
+  in the transcript is the demo's `fit 90` with a paper trail.
 - **Deciding for the user and reporting the decision**, when operator input was
   the whole point.
 - **Adding personas to buy confidence.** Four voices from one model is one
@@ -501,39 +525,15 @@ The scripts are the easy part; the protocol is what breaks. Both are checked
 ```bash
 python3 <skill-dir>/scripts/test_rubric.py                       # validation, gating, ranking
 python3 <skill-dir>/scripts/eval/check_trace.py                  # protocol assertions (fixtures)
-python3 <skill-dir>/scripts/eval/check_trace.py --live --repeat 3
-python3 <skill-dir>/scripts/eval/check_trace.py --live --driver hermes
-python3 <skill-dir>/scripts/eval/check_trace.py --live --driver pi
+python3 <skill-dir>/scripts/eval/check_trace.py --live --driver claude|hermes|pi [--repeat 3] [--benchmark]
 ```
 
-`check_trace.py` asserts what actually matters: a rubric run before any ask, ≤4 options per call, no
-score-shaped number in any rendered text, `(Recommended)` matching the ranking,
-escalation happening exactly when the rubric's reasons say it should, excluded
-options never offered, `Other` answers and hybrid picks re-scored before use,
-a pre-authorised decision logged as a pick rather than a timeout, injection-shaped
-candidates surfaced and never executed, and the final action matching the user's
-pick rather than the recommendation. On a live run the injection finding is read
-from the decision log `rubric.py` writes, not from the JSON block the agent
-narrates, and a shell tool that runs the payload fails even if the narration is
-clean. The assertions are harness-neutral — they
-read the decision log and the composed ask, never a harness-specific event
-shape. `--driver claude|hermes|pi` selects the live driver; the protocol-break
-gate, Wilson interval, and `--repeat` self-agreement logic are identical across
-drivers.
-
-Two rules in this file are operator guidance and are **not** machine-checked:
-one decision per form, and the `[ASSUMPTION]` tag. No harness exposes the ask
-form or the reply prose to the checker, and a fixture that graded a
-self-reported form would be the same failure mode the injection check stopped
-trusting.
-
-`--live` drives real headless sessions. Note its ceiling: **no harness exposes
-its interactive ask tool headlessly** (`AskUserQuestion` is absent from
-`claude -p`; `clarify` cannot render without a TTY; the pi extension's UI
-likewise), so a live run cannot observe a real ask. It gets ground truth on the
-step that actually varies — the sub-scores, read from the decision log the
-script itself writes — and lints the ask as a composed artifact. `--repeat`
-measures how often the same scenario produces the same recommendation.
+`check_trace.py` reads the decision log `rubric.py` writes (ground truth) and
+the composed ask (self-reported: no harness exposes its ask tool headlessly), and
+fails a trace on every rule in its `RULES` table — each one quotes the sentence
+in this file that states it. `--benchmark` grades runs against a held-out key.
+Two rules here are operator guidance and not machine-checked: one decision per
+form, and the `[ASSUMPTION]` tag.
 
 ## Related Skills
 

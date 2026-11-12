@@ -1,0 +1,97 @@
+{
+  "meta": {
+    "engine": "4614b9a",
+    "date": "2026-11-11",
+    "model": "claude-sonnet-5-5",
+    "repeat": 5,
+    "note": "re-run of the four underspecified cases only, after QUOTE_NOT_THE_QUESTION"
+  },
+  "per_case": {
+    "broker-underspecified": {
+      "kind": "underspecified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "bands": [
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined"
+      ]
+    },
+    "bundler-underspecified": {
+      "kind": "underspecified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "bands": [
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined"
+      ]
+    },
+    "retry-underspecified": {
+      "kind": "underspecified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "bands": [
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined"
+      ]
+    },
+    "primary-key-underspecified": {
+      "kind": "underspecified",
+      "hits": 5,
+      "graded": 5,
+      "runs": 5,
+      "tops": [
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      "bands": [
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined",
+        "Undetermined"
+      ]
+    }
+  },
+  "underspecified": {
+    "hits": 20,
+    "n": 20,
+    "wilson_lo": 0.839,
+    "wilson_hi": 1.0
+  }
+}
