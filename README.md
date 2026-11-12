@@ -10,10 +10,6 @@ Works as a skill in **Claude Code**, **Hermes Agent**, and **pi**. Pure Python, 
   <img src="docs/demo.png" alt="tiltrank in a Claude Code session: the first run comes back Undetermined and asks two clarifying questions; the second run ranks signed cookies first with the lead holding on every rating, excludes the managed SaaS for failing the self-hosted requirement, and an ADR records the pick" width="900">
 </p>
 
-The image is generated from [`docs/demo/payload.json`](docs/demo/payload.json)
-by `docs/demo/render.py`, and `docs/demo/test_demo_contract.py` fails if any
-rubric line in it is not real output.
-
 [![CI](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml/badge.svg)](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#requirements)
