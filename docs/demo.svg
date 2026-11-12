@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="922" viewBox="0 0 900 922" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="13">
+<rect width="900" height="922" rx="8" fill="#0d1117"/>
+<style>text{white-space:pre}</style>
+<text x="20" y="38" fill="#e6edf3" class="user">&gt; Which session store for the admin tool? It has to be self-hosted.</text>
+<text x="20" y="56" fill="#e6edf3" class="user">  Candidates: Signed cookies, Postgres table, Redis, Managed auth SaaS</text>
+<text x="20" y="92" fill="#8b949e" class="tool">⏺ Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/rubric.py &lt;&lt;'JSON' …)</text>
+<text x="20" y="110" fill="#c9d1d9" class="out1">  tiltrank: 3 unranked · 1 excluded (Managed auth SaaS) · Undetermined · ESCALATE missing-context</text>
+<text x="20" y="128" fill="#c9d1d9" class="out1">  - Signed cookies  fit med · reversibility high · precedent high · evidence med</text>
+<text x="20" y="146" fill="#c9d1d9" class="out1">  - Postgres table  fit med · reversibility med · precedent high · evidence med</text>
+<text x="20" y="164" fill="#c9d1d9" class="out1">  - Redis  fit med · reversibility med · precedent high · evidence med</text>
+<text x="20" y="182" fill="#c9d1d9" class="out1">  --. Managed auth SaaS  EXCLUDED — fails: must be self-hosted</text>
+<text x="20" y="200" fill="#c9d1d9" class="out1">  </text>
+<text x="20" y="218" fill="#c9d1d9" class="out1">  missing: no stated requirement separates these options</text>
+<text x="20" y="236" fill="#c9d1d9" class="out1">  band: Undetermined</text>
+<text x="20" y="254" fill="#c9d1d9" class="out1">  ESCALATE — missing-context</text>
+<text x="20" y="290" fill="#7ee787" class="composed">┌ Can't rank these yet. Two questions first: ──────────────────────────┐</text>
+<text x="20" y="308" fill="#7ee787" class="composed">│ How many instances of the admin tool run?                             │</text>
+<text x="20" y="326" fill="#7ee787" class="composed">│   ○ One instance   ○ Several replicas   ○ Don't know yet              │</text>
+<text x="20" y="344" fill="#7ee787" class="composed">│ Is a logout for everyone on each deploy acceptable?                   │</text>
+<text x="20" y="362" fill="#7ee787" class="composed">│   ○ Logout on deploy is fine   ○ Sessions must survive deploys        │</text>
+<text x="20" y="380" fill="#7ee787" class="composed">└───────────────────────────────────────────────────────────────────────┘</text>
+<text x="20" y="398" fill="#e6edf3" class="user">&gt; One instance. Logout on deploy is fine.</text>
+<text x="20" y="434" fill="#8b949e" class="tool">⏺ Bash(python3 ${CLAUDE_SKILL_DIR}/scripts/rubric.py &lt;&lt;'JSON' …)</text>
+<text x="20" y="452" fill="#c9d1d9" class="out2">  tiltrank: 3 ranked · 1 excluded (Managed auth SaaS) · Separated</text>
+<text x="20" y="470" fill="#c9d1d9" class="out2">  1. Signed cookies  fit high · reversibility high · precedent high · evidence high</text>
+<text x="20" y="488" fill="#c9d1d9" class="out2">  2. Redis  fit med · reversibility med · precedent high · evidence med</text>
+<text x="20" y="506" fill="#c9d1d9" class="out2">  3. Postgres table  fit med · reversibility med · precedent high · evidence med</text>
+<text x="20" y="524" fill="#c9d1d9" class="out2">  --. Managed auth SaaS  EXCLUDED — fails: must be self-hosted</text>
+<text x="20" y="542" fill="#c9d1d9" class="out2">  </text>
+<text x="20" y="560" fill="#c9d1d9" class="out2">  lead holds on every single rating</text>
+<text x="20" y="578" fill="#c9d1d9" class="out2">  separation: robust — how often this option stays on top under resampled weights and one-band rating noise</text>
+<text x="20" y="596" fill="#c9d1d9" class="out2">  band: Separated</text>
+<text x="20" y="614" fill="#c9d1d9" class="out2">  separated: yes — a recommendation is defensible</text>
+<text x="20" y="650" fill="#7ee787" class="composed">┌ Which session store? Lead holds on every single rating. ──────────────┐</text>
+<text x="20" y="668" fill="#7ee787" class="composed">│ Excluded: Managed auth SaaS (must be self-hosted).                    │</text>
+<text x="20" y="686" fill="#7ee787" class="composed">│ ● Signed cookies (Recommended)  nothing to operate; cookie size cap   │</text>
+<text x="20" y="704" fill="#7ee787" class="composed">│ ○ Redis                         shared store you do not need yet      │</text>
+<text x="20" y="722" fill="#7ee787" class="composed">│ ○ Postgres table                a table plus a reaper job             │</text>
+<text x="20" y="740" fill="#7ee787" class="composed">│ ○ Other                                                               │</text>
+<text x="20" y="758" fill="#7ee787" class="composed">└───────────────────────────────────────────────────────────────────────┘</text>
+<text x="20" y="776" fill="#e6edf3" class="user">&gt; Signed cookies</text>
+<text x="20" y="812" fill="#8b949e" class="tool">⏺ Write(docs/decisions/0001-admin-session-store.md)</text>
+<text x="20" y="830" fill="#7ee787" class="composed">  ## Decision</text>
+<text x="20" y="848" fill="#7ee787" class="composed">  Signed cookies, as recommended. Requirements quoted from the user:</text>
+<text x="20" y="866" fill="#7ee787" class="composed">  "It has to be self-hosted", "One instance", "Logout on deploy is fine".</text>
+<text x="20" y="884" fill="#7ee787" class="composed">  ## What would make this wrong</text>
+<text x="20" y="902" fill="#7ee787" class="composed">  A second instance that must share sessions, or a session larger than 4 KB.</text>
+</svg>
