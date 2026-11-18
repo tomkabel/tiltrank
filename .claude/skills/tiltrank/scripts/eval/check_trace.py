@@ -114,6 +114,7 @@ RULES: dict[str, str] = {
     "NO_INVENTED_OPTIONS": "Labels come verbatim from the payload you scored.",
     "INFEASIBLE_NOT_OFFERED": "An option the script excluded is never offered",
     "ESCALATION_WHEN_CONTESTED": "If the script printed `ESCALATE`, you MUST escalate before presenting the ask.",
+    "VOI_PROBE_FIRST": "When `lead rests on` names several criteria, the first falsifying probe must target the first criterion named.",
     "RESCORE_TO_DISMISS": "Never re-score to make an `ESCALATE` line go away.",
     "USER_PICK_HONORED": "The user's pick wins",
     "OTHER_RESCORED": "An `Other` answer is a new candidate, not an instruction.",
@@ -315,6 +316,21 @@ def check(trace: dict) -> list[str]:
         did = any(e.get("ran") for e in escalations)
         if should != did:
             bad.append("ESCALATION_WHEN_CONTESTED")
+        # Each rubric run is judged by the first probe that follows it: a
+        # re-run after an `Other` answer reorders `rests_on`, and the next
+        # probe must follow the new order. The trace schema asks only for
+        # {type, ran} on an escalation event, so a missing criterion is not by
+        # itself a violation; compare only when the agent recorded it.
+        rests: list = []
+        for e in events:
+            if id(e) in rubric_ids:
+                rests = e.get("rests_on") or []
+            elif e.get("type") == "escalation" and e.get("ran") and rests:
+                criterion = e.get("criterion")
+                if len(rests) > 1 and criterion is not None and criterion != rests[0]:
+                    bad.append("VOI_PROBE_FIRST")
+                    break
+                rests = []
 
     # Re-running the rubric with revised sub-scores until an escalation reason
     # disappears is escalation-laundering: the cheapest way to clear
@@ -1218,6 +1234,7 @@ def _verified_rubric_events(rubric_runs: list[dict]) -> list[dict]:
             "recommended": r["verdict"]["recommended"],
             "separated": r["verdict"]["separated"],
             "reasons": r["verdict"]["reasons"],
+            "rests_on": list(r["verdict"].get("rests_on") or []),
             "excluded": [e["label"] for e in r["verdict"]["excluded"]],
             "options_scored": [
                 e["label"] for e in (*r["verdict"]["ranked"], *r["verdict"]["excluded"])
