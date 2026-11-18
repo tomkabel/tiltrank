@@ -1098,6 +1098,29 @@ def test_fit_spread_needs_a_soft_requirement() -> None:
     assert not v.undetermined and v.recommended is not None
 
 
+def test_a_lean_towards_an_option_cannot_separate_fit() -> None:
+    """Robustness run 2026-11-18: 'I'm leaning towards webpack' written as a
+    soft requirement lifted Undetermined on 13/20 underspecified lean runs."""
+    lean = {
+        "id": "r1",
+        "text": "Prefers webpack",
+        "quote": "I'm leaning towards webpack",
+        "kind": "soft",
+        "source": "user",
+    }
+    raises(
+        lambda: rank_choices(
+            [choice("webpack", fit_to_constraints=HIGH), choice("Vite")], None, [lean]
+        ),
+        containing="names an option",
+    )
+    # A need that names no option still separates.
+    v = rank_choices(
+        [choice("webpack", fit_to_constraints=HIGH), choice("Vite")], None, SOFT
+    )
+    assert v.recommended is not None
+
+
 def test_hard_constraint_fail_excludes_with_the_requirement_text() -> None:
     v = rank_choices([con("A"), con("B", "fail")], None, [HARD, *SOFT])
     assert [r.label for r in v.excluded] == ["B"]

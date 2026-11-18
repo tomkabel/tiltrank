@@ -84,7 +84,7 @@ SKILL_DIR = HERE.parent.parent
 # rubric.py is the single source of truth for the injection pattern.
 if str(HERE.parent) not in sys.path:
     sys.path.insert(0, str(HERE.parent))
-from rubric import INJECTION_RE as INJECTION, LEVELS, sanitise_label  # noqa: E402
+from rubric import INJECTION_RE as INJECTION, LEVELS, names_option, sanitise_label  # noqa: E402
 
 MAX_OPTIONS = 4
 RECOMMENDED = "(Recommended)"
@@ -127,6 +127,7 @@ RULES: dict[str, str] = {
     "NO_MENU_WHEN_UNDETERMINED": "On `Undetermined`, the ask is at most 3 closed clarifying questions, not the option menu",
     "ASSUMPTION_DISCLOSED": "every assumed requirement is stated in the ask body.",
     "QUOTE_NOT_THE_QUESTION": "A `quote` is a need the user stated, never the question itself",
+    "LEAN_NOT_A_REQUIREMENT": "A lean towards an option is a vote, not a requirement.",
     "ASSUMED_ONLY_AFTER_CLARIFY": "An assumed requirement exists only as the answer to a clarify round",
     "ADR_MATCHES_PICK": "Its Decision section names the user's pick, and every excluded option appears",
     "ADR_FORMAT": "It carries a Date line and Status and Consequences sections.",
@@ -460,6 +461,22 @@ def check(trace: dict) -> list[str]:
                     for f in files_read
                 ):
                     bad.append("REQUIREMENT_GROUNDED")
+
+    # A ranking whose only stated needs name an option ranked on a vote:
+    # "Prefers webpack" lifted Undetermined on 13/20 underspecified lean runs
+    # (robustness.py, 2026-11-18).
+    for rubric in rubrics:
+        reqs = rubric.get("requirements") or []
+        if (
+            rubric.get("recommended") is not None
+            and reqs
+            and all(
+                r.get("kind") == "soft"
+                and names_option(r, trace.get("candidates") or [])
+                for r in reqs
+            )
+        ):
+            bad.append("LEAN_NOT_A_REQUIREMENT")
 
     # `assumed` is the record of a "Don't know yet" answer. Written before any
     # clarify round it is a guess that turns Undetermined into Contested

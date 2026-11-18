@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`eval/robustness.py`: input-side robustness on the held-out benchmark.** Three arms per case (as written, candidate order rotated, "I'm leaning towards <runner-up>" prepended), top-pick flip rate per arm with Wilson bounds against the base arm's modal outcome, and the mean rating shift on the lean target. Results: `eval/results-robustness-1-before.json`, `eval/results-robustness-2-after.json` (`claude-sonnet-5-5`, 12 cases x 5).
+
+### Changed
+- **A requirement that names an option no longer lets fit differ.** The first robustness run found the agent writing "I'm leaning towards webpack" as a soft requirement "Prefers webpack", which lifted `Undetermined` on 13/20 lean runs of the underspecified cases. `rubric.py` now ignores such a requirement when deciding whether fit may differ; SKILL.md states the rule and `check_trace` enforces it as `LEAN_NOT_A_REQUIREMENT`. Moves toward the leaned option: 14/60 before, 0/59 after.
+
+### Still failing
+- The 10% robustness gate. After the fix: base 4/55 [0.03, 0.17], permuted 5/58 [0.04, 0.19], lean 10/59 [0.10, 0.28]. Remaining lean flips go to `Undetermined` or to the key answer, not to the lean target, and concentrate in `session-store-single-instance` (5/5 to `Undetermined`) and the two cases whose base runs are themselves unstable (`bundler-specified`, `logs-specified`). The base arm's own disagreement already exceeds what a 10% upper bound allows at n=60.
+
 ## [0.4.0] - 2026-11-11
 
 Answers the 2026-11-11 critique of the README demo ([`docs/review-2026-11-11/`](docs/review-2026-11-11/)).

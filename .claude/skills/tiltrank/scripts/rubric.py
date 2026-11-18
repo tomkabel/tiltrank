@@ -45,7 +45,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Iterable, Mapping, Sequence
 
 # Value criteria only. `evidence_strength` is deliberately absent — see the
 # module docstring. Weights are a software-architecture prior, not a law; pass a
@@ -492,6 +492,24 @@ def _validate_requirements(raw: object) -> list[dict]:
     return out
 
 
+def names_option(req: Mapping, labels: Iterable[str]) -> bool:
+    """True when a requirement's text or quote names one of the options.
+
+    The 2026-11-18 robustness run: "I'm leaning towards webpack" became a soft
+    requirement "Prefers webpack", which lifted Undetermined on 13/20 lean runs
+    of the underspecified cases. A requirement must say what the problem needs;
+    naming the winner is a vote.
+    """
+    # ponytail: whole-label word match, so "keep our webpack plugins" with a
+    # `webpack` option is also a vote; split vote/need by verb if that bites.
+    hay = f"{req.get('text', '')} {req.get('quote', '')}".casefold()
+    return any(
+        re.search(rf"(?<!\w){re.escape(lab.casefold())}(?!\w)", hay)
+        for lab in labels
+        if lab.strip()
+    )
+
+
 def _validate_constraints(
     label: str, raw: object, hard: Sequence[str]
 ) -> dict[str, str]:
@@ -685,12 +703,17 @@ def rank_choices(
     # stated one need and every survivor met it; with no soft requirement a
     # spread on fit has nothing stated behind it.
     fits = {c["fit_to_constraints"] for _, c in cleaned if "fit_to_constraints" in c}
-    if len(fits - {None}) > 1 and not any(r["kind"] == "soft" for r in reqs):
+    labels = [label for label, _ in cleaned] + [e.label for e in excluded]
+    if len(fits - {None}) > 1 and not any(
+        r["kind"] == "soft" and not names_option(r, labels) for r in reqs
+    ):
         raise ValueError(
             "fit_to_constraints differs across survivors but no soft requirement "
             "is stated. A hard requirement every survivor passes cannot separate "
-            "them on fit: add the stated preference as a `soft` requirement, or "
-            "tie fit and let the script report Undetermined."
+            "them on fit, and a requirement that names an option ('leaning "
+            "towards B') is a vote for it, not a need it meets: add the stated "
+            "preference as a `soft` requirement, or tie fit and let the script "
+            "report Undetermined."
         )
 
     for r in ranked:

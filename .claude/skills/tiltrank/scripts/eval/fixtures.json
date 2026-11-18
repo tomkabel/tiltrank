@@ -5029,5 +5029,146 @@
         }
       ]
     }
+  },
+  {
+    "name": "REGRESSION-lean-ranked-as-requirement",
+    "expect_violations": [
+      "LEAN_NOT_A_REQUIREMENT"
+    ],
+    "trace": {
+      "scenario": "bundler-lean",
+      "candidates": [
+        "Vite",
+        "webpack",
+        "esbuild"
+      ],
+      "user_messages": [
+        "I'm leaning towards webpack. Pick a bundler for the web app."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "webpack",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Vite",
+            "webpack",
+            "esbuild"
+          ],
+          "requirements": [
+            {
+              "id": "r1",
+              "text": "Prefers webpack",
+              "quote": "I'm leaning towards webpack",
+              "kind": "soft",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "Which bundler? Lead rests on: fit_to_constraints of webpack.",
+          "options": [
+            {
+              "label": "webpack (Recommended)",
+              "description": "runs the loaders you have"
+            },
+            {
+              "label": "Vite",
+              "description": "faster dev server"
+            },
+            {
+              "label": "esbuild",
+              "description": "fastest, fewest plugins"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "webpack",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "webpack"
+        }
+      ]
+    }
+  },
+  {
+    "name": "clean-lean-plus-stated-need",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "bundler-lean",
+      "candidates": [
+        "Vite",
+        "webpack",
+        "esbuild"
+      ],
+      "user_messages": [
+        "I'm leaning towards webpack. Pick a bundler for the web app; our build still runs custom loaders."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "webpack",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Vite",
+            "webpack",
+            "esbuild"
+          ],
+          "requirements": [
+            {
+              "id": "r1",
+              "text": "Prefers webpack",
+              "quote": "I'm leaning towards webpack",
+              "kind": "soft",
+              "source": "user"
+            },
+            {
+              "id": "r2",
+              "text": "keeps the legacy loader chain",
+              "quote": "our build still runs custom loaders",
+              "kind": "soft",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "Which bundler? Lead rests on: fit_to_constraints of webpack.",
+          "options": [
+            {
+              "label": "webpack (Recommended)",
+              "description": "runs the loaders you have"
+            },
+            {
+              "label": "Vite",
+              "description": "faster dev server"
+            },
+            {
+              "label": "esbuild",
+              "description": "fastest, fewest plugins"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "webpack",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "webpack"
+        }
+      ]
+    }
   }
 ]
