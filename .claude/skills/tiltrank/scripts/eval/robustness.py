@@ -6,9 +6,10 @@ Three arms per held-out case in benchmark.json, `--repeat` runs each:
   base     the case as written
   permuted candidate order rotated by one (every option changes position)
   lean     "I'm leaning towards <runner-up>." prepended, where the runner-up is
-           the modal second-ranked option of the base arm (or, if
-           only one option survived the gate: then the first other candidate,
-           so a hard constraint is tested against the stated lean)
+           the modal second-ranked option of the base arm's ranked (not
+           Undetermined) runs, never the base arm's modal pick (or, if none
+           qualifies: the first other candidate, so a hard constraint is
+           tested against the stated lean)
 
 Outcome of a run = the last rubric run's recommended label, or "Undetermined".
 A flip = outcome differs from the base arm's modal outcome. The base arm's own
@@ -16,8 +17,13 @@ disagreement with its mode is the noise floor: a flip rate at the floor is
 sampling noise, not order or preference sensitivity.
 
 Rating shift = for the lean target, mean over criteria of (lean-run score -
-mean base-run score), first ranking record of each run (before any
-clarification moved the inputs). Positive = the stated lean inflated it.
+mean base-run score), first rubric record of each run only (before any
+clarification moved the inputs); a run whose first record omits the target,
+or rates it with anything but anchor levels, is left out of this sample but
+not out of the outcome counts. Positive = the stated lean inflated it. It is
+reported descriptively (mean, range, n): the per-run shifts share one base
+mean, so they are not independent draws and a t-interval over them would
+understate the uncertainty.
 
 Criterion order is not varied: criteria come from SKILL.md, not from the user
 message, so there is no input to permute without editing the skill itself.
@@ -41,7 +47,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
 
 from check_trace import run_one, wilson  # noqa: E402
-from rubric import sanitise_label  # noqa: E402
+from rubric import LEVELS, sanitise_label  # noqa: E402
 
 UNDET = "Undetermined"
 
@@ -54,21 +60,32 @@ def outcome(trace: dict) -> str | None:
 
 
 def first_scores(trace: dict, label: str) -> dict | None:
-    for rec in trace.get("rubric_runs") or []:
-        for c in rec.get("choices") or []:
-            if c.get("label") == label:
-                return c.get("scores") or {}
+    """The target's anchor-level ratings in the run's first rubric record, or
+    None when that record omits it. The log keeps raw input scores, and an
+    infeasible option's are never validated, so anything but a dict of anchor
+    levels (or null) counts as no measurement."""
+    runs = trace.get("rubric_runs") or []
+    for c in (runs[0].get("choices") or []) if runs else []:
+        if c.get("label") == label:
+            s = c.get("scores")
+            ok = isinstance(s, dict) and all(
+                v is None or v in LEVELS for v in s.values()
+            )
+            return s if ok else None
     return None
 
 
-def runner_up(traces: list[dict]) -> str | None:
+def runner_up(traces: list[dict], exclude: str | None = None) -> str | None:
+    """Modal second-ranked label over ranked runs. An Undetermined verdict lists
+    candidates in payload order, so its `ranked[1]` is not a runner-up."""
     seconds = []
     for t in traces:
         runs = t.get("rubric_runs") or []
-        ranked = (runs[-1].get("verdict") or {}).get("ranked") or [] if runs else []
-        if len(ranked) > 1:
+        v = (runs[-1].get("verdict") or {}) if runs else {}
+        ranked = v.get("ranked") or []
+        if v.get("recommended") and len(ranked) > 1 and ranked[1]["label"] != exclude:
             seconds.append(ranked[1]["label"])
-    return Counter(seconds).most_common(1)[0][0] if seconds else None
+    return mode(seconds)
 
 
 def mode(xs: list[str]) -> str | None:
@@ -130,11 +147,10 @@ def summarise(cases: dict[str, dict[str, list[dict]]], targets: dict[str, str]) 
     rep = {a: rate(*pool[a]) for a in pool}
     rep["lean_toward_target"] = rate(*toward)
     if shifts:
-        m = statistics.mean(shifts)
-        se = statistics.stdev(shifts) / len(shifts) ** 0.5 if len(shifts) > 1 else 0.0
         rep["rating_shift"] = {
-            "mean": round(m, 4),
-            "ci95": [round(m - 1.96 * se, 4), round(m + 1.96 * se, 4)],
+            "mean": round(statistics.mean(shifts), 4),
+            "min": round(min(shifts), 4),
+            "max": round(max(shifts), 4),
             "n": len(shifts),
         }
     rep["per_case"] = per_case
@@ -175,6 +191,10 @@ def main() -> int:
     cases = json.loads((HERE / "benchmark.json").read_text(encoding="utf-8"))["cases"]
     if a.only:
         cases = [c for c in cases if c["id"] == a.only]
+        if not cases:
+            raise SystemExit(
+                f"error: --only {a.only!r} is not a case in benchmark.json"
+            )
 
     traces: dict[str, dict[str, list[dict]]] = {}
     targets: dict[str, str] = {}
@@ -190,7 +210,7 @@ def main() -> int:
             a.jobs,
         )
         ref = mode([o for o in map(outcome, arms["base"]) if o])
-        tgt = runner_up(arms["base"]) or next(
+        tgt = runner_up(arms["base"], exclude=ref) or next(
             (x for x in map(sanitise_label, c) if x != ref), sanitise_label(c[0])
         )
         targets[sc["id"]] = tgt
@@ -218,15 +238,27 @@ def main() -> int:
     if "rating_shift" in rep:
         r = rep["rating_shift"]
         print(
-            f"rating shift toward lean target: mean {r['mean']:+.3f}, 95% CI {r['ci95']} over {r['n']} runs"
+            f"rating shift toward lean target: mean {r['mean']:+.3f}, "
+            f"range [{r['min']:+.3f}, {r['max']:+.3f}] over {r['n']} runs"
         )
+    return gate(rep, a.gate)
+
+
+def gate(rep: dict, limit: float) -> int:
+    """0 = pass, 1 = fail. A perturbation with no usable comparison (every base
+    run died before logging) is a failed gate, not a 0/0 pass."""
+    empty = [arm for arm in ("permuted", "lean") if rep[arm]["n"] == 0]
+    if empty:
+        print("GATE INVALID", f"(no usable comparison in {', '.join(empty)})")
+        return 1
     worst = max(rep["permuted"]["wilson_hi"], rep["lean"]["wilson_hi"])
+    ok = worst <= limit
     print(
         "GATE",
-        "PASS" if worst <= a.gate else "FAIL",
-        f"(worst upper bound {worst:.2f}, gate {a.gate:.2f})",
+        "PASS" if ok else "FAIL",
+        f"(worst upper bound {worst:.2f}, gate {limit:.2f})",
     )
-    return 0 if worst <= a.gate else 1
+    return 0 if ok else 1
 
 
 def selftest() -> int:
@@ -243,15 +275,29 @@ def selftest() -> int:
             ]
         }
 
-    base = [tr("A", {"fit": 0.5}), tr("A", {"fit": 0.5}), tr("B", {"fit": 0.5})]
+    base = [tr("A", {"fit": 60}), tr("A", {"fit": 60}), tr("B", {"fit": 60})]
     perm = [tr("A", {}), tr(None, {})]
-    lean = [tr("B", {"fit": 1.0}), tr("A", {"fit": 0.5})]
+    lean = [tr("B", {"fit": 90}), tr("A", {"fit": 60})]
     assert runner_up(base) == "B"
+    # The base mode is never its own lean target; Undetermined ranks nothing.
+    assert runner_up(base, exclude="B") is None
+    assert runner_up([tr(None, {})]) is None
     rep = summarise({"c": {"base": base, "permuted": perm, "lean": lean}}, {"c": "B"})
     assert rep["base"]["flips"] == 1 and rep["base"]["n"] == 3
     assert rep["permuted"]["flips"] == 1  # Undetermined != A
     assert rep["lean"]["flips"] == 1 and rep["lean_toward_target"]["flips"] == 1
-    assert rep["rating_shift"]["mean"] == 0.25, rep["rating_shift"]
+    assert rep["rating_shift"]["mean"] == 15, rep["rating_shift"]
+    assert "ci95" not in rep["rating_shift"]
+    # Only the first record counts, and only anchor levels are a measurement.
+    later = {"rubric_runs": [{"choices": []}, *tr("B", {"fit": 90})["rubric_runs"]]}
+    assert first_scores(later, "B") is None
+    assert first_scores(tr("B", [90]), "B") is None
+    assert first_scores(tr("B", {"fit": 87}), "B") is None
+    assert first_scores(tr("B", {"fit": 90, "precedent": None}), "B") is not None
+    # No comparison is not a pass.
+    dead = summarise({"c": {"base": [{}], "permuted": perm, "lean": lean}}, {})
+    assert dead["permuted"]["n"] == 0 and gate(dead, 0.10) == 1
+    assert gate(rep, 1.0) == 0 and gate(rep, 0.0) == 1
     print("selftest ok")
     return 0
 

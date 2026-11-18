@@ -1086,15 +1086,25 @@ def test_fit_spread_needs_a_soft_requirement() -> None:
         containing="no soft requirement",
     )
     raises(
-        lambda: rank_choices(DEMO_PAYLOAD["choices"], None, [HARD]),
+        lambda: rank_choices(
+            [con("A", fit_to_constraints=HIGH), con("B")], None, [HARD]
+        ),
         containing="no soft requirement",
     )
     proc = cli(DEMO_PAYLOAD, bare=True)
     assert proc.returncode == 1 and "soft" in proc.stderr
-    # Equal, or null, is fine without one.
+    # An unresolved hard constraint is asked about first, not an error.
     v = rank_choices(
-        [choice("A", fit_to_constraints=None, precedent=HIGH), choice("B")]
+        [con("A", "unknown", fit_to_constraints=HIGH), con("B")], None, [HARD]
     )
+    assert (
+        v.undetermined and v.missing[0] == "unknown hard constraint self-hosted for A"
+    )
+    # Known-versus-null fit is decisive only behind a stated need (PR #29).
+    pair = [choice("A", fit_to_constraints=None, precedent=HIGH), choice("B")]
+    v = rank_choices(pair)
+    assert v.undetermined and v.recommended is None
+    v = rank_choices(pair, None, SOFT)
     assert not v.undetermined and v.recommended is not None
 
 
@@ -1113,6 +1123,27 @@ def test_a_lean_towards_an_option_cannot_separate_fit() -> None:
             [choice("webpack", fit_to_constraints=HIGH), choice("Vite")], None, [lean]
         ),
         containing="names an option",
+    )
+    # A null fit on the other option does not let the lean through (PR #29).
+    v = rank_choices(
+        [
+            choice("webpack", fit_to_constraints=HIGH),
+            choice("Vite", fit_to_constraints=None),
+        ],
+        None,
+        [lean],
+    )
+    assert v.undetermined and v.recommended is None
+    # A short name is a vote only through the choice's explicit aliases.
+    short = {**lean, "text": "Prefers Vite", "quote": "I'm leaning towards Vite"}
+    vite = {**choice("Vite library mode", fit_to_constraints=HIGH), "aliases": ["Vite"]}
+    raises(
+        lambda: rank_choices([vite, choice("tsup")], None, [short]),
+        containing="names an option",
+    )
+    raises(
+        lambda: rank_choices([{**vite, "aliases": "Vite"}, choice("tsup")], None, SOFT),
+        containing="'aliases' must be a list of strings",
     )
     # A need that names no option still separates.
     v = rank_choices(

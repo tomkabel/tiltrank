@@ -502,6 +502,8 @@ def names_option(req: Mapping, labels: Iterable[str]) -> bool:
     """
     # ponytail: whole-label word match, so "keep our webpack plugins" with a
     # `webpack` option is also a vote; split vote/need by verb if that bites.
+    # Short names ("Vite" for "Vite library mode") match only via a choice's
+    # explicit `aliases`: a bare-word match would turn real needs into votes.
     hay = f"{req.get('text', '')} {req.get('quote', '')}".casefold()
     return any(
         re.search(rf"(?<!\w){re.escape(lab.casefold())}(?!\w)", hay)
@@ -618,6 +620,7 @@ def rank_choices(
     excluded: list[Ranked] = []
     cleaned: list[tuple[str, dict[str, float | None]]] = []
     unknown_hard: dict[str, list[str]] = {}
+    names: list[str] = []  # every label and alias, for names_option
     seen: set[str] = set()
 
     for raw in choices:
@@ -635,6 +638,12 @@ def rank_choices(
         if label in seen:
             raise ValueError(f"duplicate choice label: {label!r}")
         seen.add(label)
+        aliases = raw.get("aliases", [])
+        if not isinstance(aliases, list) or not all(
+            isinstance(a, str) for a in aliases
+        ):
+            raise ValueError(f"{label!r}: 'aliases' must be a list of strings")
+        names += [label, *(sanitise_label(a) for a in aliases)]
 
         if not isinstance(raw.get("note", ""), (str, type(None))):
             raise ValueError(f"{label!r}: 'note' must be a string, got {raw['note']!r}")
@@ -698,29 +707,33 @@ def rank_choices(
         verdict.reasons = ["no-feasible-option"]
         return verdict
 
+    # An unresolved hard constraint is the first thing to ask about, so it is
+    # reported before the fit spread is judged.
+    for r in ranked:
+        for rid in unknown_hard.get(r.label, []):
+            verdict.missing.append(f"unknown hard constraint {rid} for {r.label}")
+
     # A hard requirement that every survivor passes cannot separate them on
     # fit. The demo's `fit 90` for one option was legal because the prompt
     # stated one need and every survivor met it; with no soft requirement a
     # spread on fit has nothing stated behind it.
     fits = {c["fit_to_constraints"] for _, c in cleaned if "fit_to_constraints" in c}
-    labels = [label for label, _ in cleaned] + [e.label for e in excluded]
-    if len(fits - {None}) > 1 and not any(
-        r["kind"] == "soft" and not names_option(r, labels) for r in reqs
-    ):
+    names += [e.label for e in excluded]
+    needed = any(r["kind"] == "soft" and not names_option(r, names) for r in reqs)
+    if not verdict.missing and len(fits - {None}) > 1 and not needed:
         raise ValueError(
             "fit_to_constraints differs across survivors but no soft requirement "
-            "is stated. A hard requirement every survivor passes cannot separate "
-            "them on fit, and a requirement that names an option ('leaning "
-            "towards B') is a vote for it, not a need it meets: add the stated "
-            "preference as a `soft` requirement, or tie fit and let the script "
+            "states a need. A hard requirement every survivor passes cannot "
+            "separate them on fit, and a requirement that names an option "
+            "('leaning towards B', 'keep our B plugins') is a vote for it: restate "
+            "the need without the option's name ('keep our existing plugins "
+            "working') as a `soft` requirement, or tie fit and let the script "
             "report Undetermined."
         )
-
-    for r in ranked:
-        for rid in unknown_hard.get(r.label, []):
-            verdict.missing.append(f"unknown hard constraint {rid} for {r.label}")
-    # A null fit is a distinct answer ("could not establish"), not a tie.
-    if len(ranked) > 1 and len(fits) == 1 and "fit_to_constraints" in w:
+    # A null fit is a distinct answer ("could not establish"), not a tie — but
+    # only a stated need makes known-versus-unknown fit decisive. Without one,
+    # "fit 90 vs null" is the same unsupported spread as "90 vs 60".
+    if len(ranked) > 1 and "fit_to_constraints" in w and (len(fits) == 1 or not needed):
         verdict.missing.append("no stated requirement separates these options")
     if verdict.missing:
         verdict.undetermined = True
@@ -1019,6 +1032,7 @@ def append_log(path: Path, payload: Mapping[str, object], verdict: Verdict) -> N
                 "evidence": c.get("evidence"),
                 "feasible": c.get("feasible", True),
                 "constraints": c.get("constraints"),
+                "aliases": c.get("aliases") or [],
             }
             for c in payload.get("choices", [])  # type: ignore[union-attr]
         ],

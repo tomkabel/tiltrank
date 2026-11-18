@@ -465,16 +465,22 @@ def check(trace: dict) -> list[str]:
     # A ranking whose only stated needs name an option ranked on a vote:
     # "Prefers webpack" lifted Undetermined on 13/20 underspecified lean runs
     # (robustness.py, 2026-11-18).
+    # Hard requirements are ignored: one every survivor passes separates
+    # nothing, so it cannot be what ranked them. A lone survivor was never
+    # ranked against anything, so its recommendation is not the lean's doing.
     for rubric in rubrics:
-        reqs = rubric.get("requirements") or []
+        scored = rubric.get("options_scored") or []
+        names = [
+            *(trace.get("candidates") or []),
+            *scored,
+            *(rubric.get("aliases") or []),
+        ]
+        softs = [r for r in rubric.get("requirements") or [] if r.get("kind") == "soft"]
         if (
             rubric.get("recommended") is not None
-            and reqs
-            and all(
-                r.get("kind") == "soft"
-                and names_option(r, trace.get("candidates") or [])
-                for r in reqs
-            )
+            and len(scored) - len(rubric.get("excluded") or []) > 1
+            and softs
+            and all(names_option(r, names) for r in softs)
         ):
             bad.append("LEAN_NOT_A_REQUIREMENT")
 
@@ -1257,6 +1263,9 @@ def _verified_rubric_events(rubric_runs: list[dict]) -> list[dict]:
                 e["label"] for e in (*r["verdict"]["ranked"], *r["verdict"]["excluded"])
             ],
             "requirements": list(r.get("requirements") or []),
+            "aliases": [
+                a for c in r.get("choices") or [] for a in c.get("aliases") or []
+            ],
         }
         for r in rubric_runs
     ]

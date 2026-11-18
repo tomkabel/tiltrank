@@ -5099,6 +5099,209 @@
     }
   },
   {
+    "name": "REGRESSION-lean-behind-a-hard-requirement-all-pass",
+    "expect_violations": [
+      "LEAN_NOT_A_REQUIREMENT"
+    ],
+    "trace": {
+      "scenario": "bundler-lean",
+      "candidates": [
+        "Vite",
+        "webpack",
+        "esbuild"
+      ],
+      "user_messages": [
+        "I'm leaning towards webpack. Pick a bundler for web app. It has to run offline."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "webpack",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Vite",
+            "webpack",
+            "esbuild"
+          ],
+          "requirements": [
+            {
+              "id": "offline",
+              "text": "must run offline",
+              "quote": "It has to run offline",
+              "kind": "hard",
+              "source": "user"
+            },
+            {
+              "id": "r1",
+              "text": "Prefers webpack",
+              "quote": "I'm leaning towards webpack",
+              "kind": "soft",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "Which bundler? Lead rests on: fit_to_constraints of webpack.",
+          "options": [
+            {
+              "label": "webpack (Recommended)",
+              "description": "runs the loaders you have"
+            },
+            {
+              "label": "Vite",
+              "description": "faster dev server"
+            },
+            {
+              "label": "esbuild",
+              "description": "fastest, fewest plugins"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "webpack",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "webpack"
+        }
+      ]
+    }
+  },
+  {
+    "name": "REGRESSION-lean-towards-a-framing-added-option",
+    "expect_violations": [
+      "LEAN_NOT_A_REQUIREMENT"
+    ],
+    "trace": {
+      "scenario": "bundler-lean",
+      "candidates": [
+        "Vite",
+        "webpack"
+      ],
+      "user_messages": [
+        "I'm leaning towards esbuild. Pick a bundler for web app: Vite or webpack."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "esbuild",
+          "separated": true,
+          "reasons": [],
+          "excluded": [],
+          "options_scored": [
+            "Vite",
+            "webpack",
+            "esbuild"
+          ],
+          "requirements": [
+            {
+              "id": "r1",
+              "text": "Prefers esbuild",
+              "quote": "I'm leaning towards esbuild",
+              "kind": "soft",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "Which bundler? I added esbuild. Lead rests on: fit_to_constraints esbuild.",
+          "options": [
+            {
+              "label": "esbuild (Recommended)",
+              "description": "added by me: fastest, fewest plugins"
+            },
+            {
+              "label": "Vite",
+              "description": "faster dev server"
+            },
+            {
+              "label": "webpack",
+              "description": "runs loaders you have"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "esbuild",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "esbuild"
+        }
+      ]
+    }
+  },
+  {
+    "name": "clean-lean-on-the-only-survivor",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "bundler-lean",
+      "candidates": [
+        "Vite",
+        "webpack",
+        "esbuild"
+      ],
+      "user_messages": [
+        "I'm leaning towards webpack. Pick a bundler for web app. Must support IE11."
+      ],
+      "files_read": [],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "webpack",
+          "separated": true,
+          "reasons": [],
+          "excluded": [
+            "Vite",
+            "esbuild"
+          ],
+          "options_scored": [
+            "webpack",
+            "Vite",
+            "esbuild"
+          ],
+          "requirements": [
+            {
+              "id": "r1",
+              "text": "Prefers webpack",
+              "quote": "I'm leaning towards webpack",
+              "kind": "soft",
+              "source": "user"
+            }
+          ]
+        },
+        {
+          "type": "ask",
+          "question": "Only webpack supports IE11; Vite and esbuild are excluded. Go with webpack?",
+          "options": [
+            {
+              "label": "webpack (Recommended)",
+              "description": "the only option that supports IE11"
+            }
+          ]
+        },
+        {
+          "type": "answer",
+          "label": "webpack",
+          "is_other": false
+        },
+        {
+          "type": "action",
+          "label": "webpack"
+        }
+      ]
+    }
+  },
+  {
     "name": "clean-lean-plus-stated-need",
     "expect_violations": [],
     "trace": {
