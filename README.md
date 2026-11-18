@@ -7,7 +7,11 @@ The name comes from the stability check: tiltrank tilts the weights a few hundre
 Works as a skill in **Claude Code**, **Hermes Agent**, and **pi**. Pure Python, no dependencies.
 
 <p align="center">
-  <img src="docs/demo.svg" alt="tiltrank in a Claude Code session: the first run comes back Undetermined and asks two clarifying questions; the second run ranks signed cookies first with the lead holding on every rating, excludes the managed SaaS for failing the self-hosted requirement, and an ADR records the pick" width="900">
+  <!-- docs/demo.png is a 2x raster of docs/demo.svg; the SVG's lines are
+       checked against real rubric.py output by test_demo_contract.py.
+       Regenerate: python3 docs/demo/render.py &&
+       rsvg-convert -w 1800 docs/demo.svg -o docs/demo.png -->
+  <img src="docs/demo.png" alt="tiltrank in a Claude Code session: the first run comes back Undetermined and asks two clarifying questions; the second run ranks signed cookies first with the lead holding on every rating, excludes the managed SaaS for failing the self-hosted requirement, and an ADR records the pick" width="900">
 </p>
 
 The image is generated from [`docs/demo/payload.json`](docs/demo/payload.json)
