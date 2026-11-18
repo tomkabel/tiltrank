@@ -57,7 +57,15 @@ def test_image_shows_no_total() -> None:
 
 def test_readme_embeds_the_generated_image() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert 'src="docs/demo.svg"' in readme
+    if 'src="docs/demo.svg"' in readme:
+        return
+    # A raster hero is allowed only alongside the generated SVG it is
+    # rasterized from, with the tie to render.py recorded in the README;
+    # anything else is a hand-edited image again.
+    assert 'src="docs/demo.png"' in readme, "README embeds no generated hero"
+    assert "docs/demo.svg" in readme and "render.py" in readme, (
+        "docs/demo.png must stay tied to the contract-checked docs/demo.svg"
+    )
 
 
 def run_all() -> None:

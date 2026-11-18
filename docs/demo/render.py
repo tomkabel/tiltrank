@@ -8,6 +8,11 @@ verbatim. The ask boxes, the user's answers and the ADR excerpt are the
 composed parts of the session and are tagged `class="composed"`.
 
     python3 docs/demo/render.py
+
+Rasterize the hero for the README (the PNG stays a derivative of the
+contract-checked SVG; regenerate it after every render.py run):
+
+    rsvg-convert -w 1800 docs/demo.svg -o docs/demo.png
 """
 
 from __future__ import annotations
