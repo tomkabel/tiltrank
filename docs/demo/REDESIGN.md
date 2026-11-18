@@ -214,3 +214,29 @@ added; tesseract recovers ≥98% of rubric lines at 900 px width (CER ≤2%); th
 PNG is ≤400 KB; and the chosen theme beats the whitespace-fixed baseline in a
 blind A/B with the user.
 ```
+
+## 9. Results (2026-11-18)
+
+Shipped: Vesper (dark, `docs/demo.png`) and a Vesper-derived light palette
+(`docs/demo-light.png`) behind `<picture>`. Rosé Pine Moon and Tokyo Night
+Storm stay in `THEMES` for the A/B (`render.py --theme … --png`).
+
+| Judge | Target | Result |
+|---|---|---|
+| `test_demo_contract.py` | green | 5/5, now over both SVGs, with exact whitespace and WCAG checks added |
+| Contrast, weakest text role | ≥ 4.5:1 | Vesper 6.79, light 5.19, Rosé 4.88 (its `dim` failed at 4.46 and was raised), Tokyo 5.08 |
+| Contrast, `muted` | ≥ 3:1 | 4.37 / 4.75 / 3.80 / 3.93 |
+| OCR at 900 px | ≥ 98% of lines at CER ≤ 2% | 17/17, mean CER 0.0% (dark and light). The whitespace-fixed baseline also gets 17/17 |
+| OCR at phone width | verdict and pick readable | at 400 CSS px × 2 DPR = 800 px: 17/17. At 400 px × 1x no hero passes, the baseline included (1/17), so the original 400 px target was mis-specified |
+| PNG size | ≤ 400 KB | 199 KB dark, 195 KB light (was 519 KB). 256-colour quantize, PSNR 54 dB |
+| Aspect | ≤ 1.15 | **missed: 1.37** (2104×2888). The contract forbids dropping rubric lines, and the cards add padding. The baseline is 1.02 only because it has no chrome or spacing |
+| Blind A/B | the chosen theme beats the baseline | pending with the user |
+
+Deviations from the plan: the markers (●, ○, the pill) are SVG shapes,
+because JetBrains Mono has no glyphs for them. The rasterizer is headless
+Chromium (rsvg ignores `@font-face`), and both `xml:space="preserve"` and
+CSS `white-space:pre` are required, because each renderer honours only one of
+them. Vesper maps `med` to neutral grey, so only `high` and the pick carry
+colour. The light palette is hand-tuned and judged by the contrast test, not
+derived in OKLCH. No beat rail was added: the cards and prompt bands already
+mark the beats.
