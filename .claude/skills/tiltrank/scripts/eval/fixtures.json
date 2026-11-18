@@ -4948,5 +4948,35 @@
         }
       ]
     }
+  },
+  {
+    "name": "clean-voi-no-criterion-recorded",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "contested",
+      "candidates": [
+        "A",
+        "B"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "B",
+          "separated": false,
+          "reasons": [
+            "not-separable"
+          ],
+          "excluded": [],
+          "rests_on": [
+            "precedent",
+            "fit_to_constraints"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": true
+        }
+      ]
+    }
   }
 ]

@@ -318,7 +318,11 @@ def check(trace: dict) -> list[str]:
             bad.append("ESCALATION_WHEN_CONTESTED")
         rests = first.get("rests_on") or []
         ran = [e for e in escalations if e.get("ran")]
-        if len(rests) > 1 and ran and ran[0].get("criterion") != rests[0]:
+        # The trace schema asks only for {type, ran} on an escalation event.
+        # A missing criterion is not by itself a violation; compare only when
+        # the agent recorded which criterion it probed.
+        criterion = ran[0].get("criterion") if ran else None
+        if len(rests) > 1 and criterion is not None and criterion != rests[0]:
             bad.append("VOI_PROBE_FIRST")
 
     # Re-running the rubric with revised sub-scores until an escalation reason
