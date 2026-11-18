@@ -316,14 +316,21 @@ def check(trace: dict) -> list[str]:
         did = any(e.get("ran") for e in escalations)
         if should != did:
             bad.append("ESCALATION_WHEN_CONTESTED")
-        rests = first.get("rests_on") or []
-        ran = [e for e in escalations if e.get("ran")]
-        # The trace schema asks only for {type, ran} on an escalation event.
-        # A missing criterion is not by itself a violation; compare only when
-        # the agent recorded which criterion it probed.
-        criterion = ran[0].get("criterion") if ran else None
-        if len(rests) > 1 and criterion is not None and criterion != rests[0]:
-            bad.append("VOI_PROBE_FIRST")
+        # Each rubric run is judged by the first probe that follows it: a
+        # re-run after an `Other` answer reorders `rests_on`, and the next
+        # probe must follow the new order. The trace schema asks only for
+        # {type, ran} on an escalation event, so a missing criterion is not by
+        # itself a violation; compare only when the agent recorded it.
+        rests: list = []
+        for e in events:
+            if id(e) in rubric_ids:
+                rests = e.get("rests_on") or []
+            elif e.get("type") == "escalation" and e.get("ran") and rests:
+                criterion = e.get("criterion")
+                if len(rests) > 1 and criterion is not None and criterion != rests[0]:
+                    bad.append("VOI_PROBE_FIRST")
+                    break
+                rests = []
 
     # Re-running the rubric with revised sub-scores until an escalation reason
     # disappears is escalation-laundering: the cheapest way to clear
