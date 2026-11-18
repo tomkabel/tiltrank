@@ -230,7 +230,7 @@ Storm stay in `THEMES` for the A/B (`render.py --theme … --png`).
 | OCR at phone width | verdict and pick readable | at 400 CSS px × 2 DPR = 800 px: 17/17. At 400 px × 1x no hero passes, the baseline included (1/17), so the original 400 px target was mis-specified |
 | PNG size | ≤ 400 KB | 199 KB dark, 195 KB light (was 519 KB). 256-colour quantize, PSNR 54 dB |
 | Aspect | ≤ 1.15 | **missed: 1.37** (2104×2888). The contract forbids dropping rubric lines, and the cards add padding. The baseline is 1.02 only because it has no chrome or spacing |
-| Blind A/B | the chosen theme beats the baseline | pending with the user |
+| Blind A/B | the chosen theme beats the baseline | user picked A = Vesper over Tokyo Night, Rosé Pine and the baseline (one rater; more raters would firm it up) |
 
 Deviations from the plan: the markers (●, ○, the pill) are SVG shapes,
 because JetBrains Mono has no glyphs for them. The rasterizer is headless
