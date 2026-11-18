@@ -287,6 +287,33 @@ def test_stability_flags_a_near_tie() -> None:
     assert not v.separated and "not-separable" in v.reasons
 
 
+def test_stability_resolves_the_threshold_with_reference_budget() -> None:
+    """Ch 14.2: 400 draws calls this 0.9025; 40,000 call it 0.8939."""
+    w = {"reversibility": 0.3, "precedent": 0.7}
+    a = {
+        "label": "A",
+        "evidence": MID,
+        "scores": {"reversibility": HIGH, "precedent": LOW},
+    }
+    b = {
+        "label": "B",
+        "evidence": MID,
+        "scores": {"reversibility": LOW, "precedent": LOW},
+    }
+    v = ranked([a, b], weights=w)
+    assert v.stability == 0.8939
+    assert not v.separated and v.band == "Weak field"
+
+
+def test_rests_on_is_ordered_by_value_of_information() -> None:
+    """Ch 6.6, eq 6.9: probe the observation with the largest expected gain."""
+    w = {"fit_to_constraints": 0.2, "reversibility": 0.3, "precedent": 0.5}
+    a = choice("A", fit_to_constraints=LOW, precedent=LOW, reversibility=HIGH)
+    b = choice("B", fit_to_constraints=MID, precedent=MID, reversibility=LOW)
+    v = ranked([a, b], weights=w)
+    assert v.rests_on == ["precedent", "fit_to_constraints"]
+
+
 def test_unverified_evidence_forces_escalation() -> None:
     """Weak evidence means go get evidence, not dock points."""
     v = ranked(

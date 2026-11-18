@@ -212,14 +212,14 @@ pass `--json` in a Claude Code session, and never write a total into your
 reply.** `--table` and `--json` exist for batch tooling, not for the ask.
 
 **`separation` is measured, not asserted.** The script resamples the weights and
-jitters every sub-score by one anchor band a few hundred times, and reports how
-often your top option stays on top: `robust`, `marginal`, or `fragile`. It also
-runs a deterministic probe: give the top option the runner-up's rating on one
+jitters every sub-score by one anchor band 400 times, escalating to 40,000 when the
+95% Wilson interval contains 0.90; only a lower bound at or above 0.90 is `robust`.
+It also runs a deterministic probe: give the top option the runner-up's rating on one
 criterion at a time. If any single substitution flips the order, the output says
 `lead rests on: <criterion> of <option>` and the band is `Contested` whatever the
 resampling said — the lead is one mis-scored rating away from wrong. Otherwise it
-says `lead holds on every single rating`. Do not talk yourself past either a
-`fragile` reading or a `lead rests on` line.
+says `lead holds on every single rating`. Criteria are ordered by expected utility
+gain under a uniform prior over the three anchors. **When `lead rests on` names several criteria, the first falsifying probe must target the first criterion named.** Do not talk yourself past either a `fragile` reading or a `lead rests on` line.
 
 ### 3. Escalate when the call is genuinely close, or when asked
 

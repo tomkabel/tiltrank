@@ -4884,5 +4884,69 @@
         }
       ]
     }
+  },
+  {
+    "name": "REGRESSION-voi-lower-value-probe-first",
+    "expect_violations": [
+      "VOI_PROBE_FIRST"
+    ],
+    "trace": {
+      "scenario": "contested",
+      "candidates": [
+        "A",
+        "B"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "B",
+          "separated": false,
+          "reasons": [
+            "not-separable"
+          ],
+          "excluded": [],
+          "rests_on": [
+            "precedent",
+            "fit_to_constraints"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": true,
+          "criterion": "fit_to_constraints"
+        }
+      ]
+    }
+  },
+  {
+    "name": "clean-voi-highest-value-probe-first",
+    "expect_violations": [],
+    "trace": {
+      "scenario": "contested",
+      "candidates": [
+        "A",
+        "B"
+      ],
+      "events": [
+        {
+          "type": "rubric",
+          "recommended": "B",
+          "separated": false,
+          "reasons": [
+            "not-separable"
+          ],
+          "excluded": [],
+          "rests_on": [
+            "precedent",
+            "fit_to_constraints"
+          ]
+        },
+        {
+          "type": "escalation",
+          "ran": true,
+          "criterion": "precedent"
+        }
+      ]
+    }
   }
 ]

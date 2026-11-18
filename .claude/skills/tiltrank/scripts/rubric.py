@@ -69,6 +69,7 @@ WEAK_FIELD_TOTAL = 50.0
 # a number derived from the two things that actually vary: weights nobody
 # measured, and ratings that move a band between passes.
 PERTURBATIONS = 400
+REFERENCE_PERTURBATIONS = 40_000
 WEIGHT_CONCENTRATION = 40.0  # higher = weights wobble less
 BAND_FLIP_PROB = 0.25  # chance a sub-score moves one anchor band
 STABILITY_THRESHOLD = 0.90
@@ -357,10 +358,20 @@ def _clean_sub_scores(
     return {k: _validate_level(k, sub_scores[k]) for k in w}
 
 
+def _wilson_bounds(successes: int, draws: int) -> tuple[float, float]:
+    z = 1.96
+    p = successes / draws
+    denom = 1.0 + z * z / draws
+    centre = (p + z * z / (2 * draws)) / denom
+    radius = z * math.sqrt(p * (1 - p) / draws + z * z / (4 * draws * draws)) / denom
+    return centre - radius, centre + radius
+
+
 def _stability(
     cleaned: Sequence[tuple[str, dict[str, float | None]]],
     w: Mapping[str, float],
     top_label: str,
+    draws: int = PERTURBATIONS,
 ) -> float:
     """How often `top_label` survives resampled weights and one-band rating jitter.
 
@@ -380,10 +391,10 @@ def _stability(
     alphas = [max(w[k] * WEIGHT_CONCENTRATION, 1e-3) for k in names]
     survived = 0
 
-    for _ in range(PERTURBATIONS):
-        draws = [rng.gammavariate(a, 1.0) for a in alphas]
-        total = sum(draws) or 1.0
-        pw = {k: d / total for k, d in zip(names, draws)}
+    for _ in range(draws):
+        gamma_draws = [rng.gammavariate(a, 1.0) for a in alphas]
+        total = sum(gamma_draws) or 1.0
+        pw = {k: d / total for k, d in zip(names, gamma_draws)}
 
         best_label, best_key = None, None
         for label, clean in cleaned:
@@ -402,7 +413,24 @@ def _stability(
         if best_label == top_label:
             survived += 1
 
-    return round(survived / PERTURBATIONS, 3)
+    return round(survived / draws, 4)
+
+
+def _measured_stability(
+    cleaned: Sequence[tuple[str, dict[str, float | None]]],
+    w: Mapping[str, float],
+    top_label: str,
+) -> tuple[float, bool]:
+    draws = PERTURBATIONS
+    estimate = _stability(cleaned, w, top_label, draws)
+    successes = round(estimate * draws)
+    lo, hi = _wilson_bounds(successes, draws)
+    if lo < STABILITY_THRESHOLD <= hi:
+        draws = REFERENCE_PERTURBATIONS
+        estimate = _stability(cleaned, w, top_label, draws)
+        successes = round(estimate * draws)
+        lo, _ = _wilson_bounds(successes, draws)
+    return estimate, lo >= STABILITY_THRESHOLD
 
 
 REQUIREMENT_KINDS = ("hard", "soft")
@@ -491,6 +519,26 @@ def _validate_constraints(
     return out
 
 
+def _rating_voi(
+    top: tuple[str, dict[str, float | None]],
+    second: tuple[str, dict[str, float | None]],
+    w: Mapping[str, float],
+    criterion: str,
+) -> float:
+    """Equation 6.9 with a uniform prior over the three anchor observations."""
+    _, top_clean = top
+    _, second_clean = second
+    second_lo, second_point, _ = _bounds(second_clean, w)
+    current = max(_bounds(top_clean, w)[0], second_lo)
+    expected = 0.0
+    for level in LEVELS:
+        observed = dict(top_clean)
+        observed[criterion] = float(level)
+        top_lo, top_point, _ = _bounds(observed, w)
+        expected += max((top_lo, top_point), (second_lo, second_point))[0]
+    return expected / 3 - current
+
+
 def _single_rating_probe(
     top: tuple[str, dict[str, float | None]],
     second: tuple[str, dict[str, float | None]],
@@ -513,7 +561,7 @@ def _single_rating_probe(
         lo1, point1, _ = _bounds(probe, w)
         if (lo1, point1, top_label) < (lo2, point2, second_label):
             flips.append(k)
-    return flips
+    return sorted(flips, key=lambda k: (-_rating_voi(top, second, w, k), k))
 
 
 def rank_choices(
@@ -663,8 +711,7 @@ def rank_choices(
 
     top = ranked[0]
     assert top.score is not None
-    verdict.stability = _stability(cleaned, w, top.label)
-    verdict.separated = verdict.stability >= STABILITY_THRESHOLD
+    verdict.stability, verdict.separated = _measured_stability(cleaned, w, top.label)
     if len(ranked) > 1:
         by_label = dict(cleaned)
         verdict.rests_on = _single_rating_probe(
@@ -709,6 +756,17 @@ def rank_choices(
     return verdict
 
 
+def _point_is_separated(stability: float) -> bool:
+    draws = PERTURBATIONS
+    successes = round(stability * draws)
+    lo, hi = _wilson_bounds(successes, draws)
+    if lo < STABILITY_THRESHOLD <= hi:
+        draws = REFERENCE_PERTURBATIONS
+        successes = round(stability * draws)
+        lo, _ = _wilson_bounds(successes, draws)
+    return lo >= STABILITY_THRESHOLD
+
+
 def stability_band(stability: float) -> str:
     """Ordinal reading of the stability figure.
 
@@ -716,7 +774,7 @@ def stability_band(stability: float) -> str:
     number in front of a model is a number that ends up in an option
     description; the exact figure stays in --json where tooling can have it.
     """
-    if stability >= STABILITY_THRESHOLD:
+    if _point_is_separated(stability):
         return "robust"
     return "marginal" if stability >= 0.70 else "fragile"
 
