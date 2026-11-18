@@ -18,13 +18,18 @@ The image is generated from [`docs/demo/payload.json`](docs/demo/payload.json)
 by `docs/demo/render.py`, and `docs/demo/test_demo_contract.py` fails if any
 rubric line in it is not real output.
 
-[![CI](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml/badge.svg)](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)](https://www.python.org/downloads/)
-[![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](#requirements)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-skill-D97757)](https://docs.claude.com/en/docs/claude-code/skills)
-[![Hermes Agent](https://img.shields.io/badge/Hermes%20Agent-skill-4B3B8F)](https://hermes-agent.nousresearch.com/docs)
-[![pi](https://img.shields.io/badge/pi-extension-2D7D6E)](https://github.com/badlogic/pi-mono)
-[![Agent Skills](https://img.shields.io/badge/Agent%20Skills-spec--compliant-8A2BE2)](https://agentskills.io/)
+
+<div align="center">
+
+[![CI](https://img.shields.io/github/actions/workflow/status/tomkabel/tiltrank/test.yml?style=for-the-badge&label=CI)](https://github.com/tomkabel/tiltrank/actions/workflows/test.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white&style=for-the-badge)](https://www.python.org/downloads/)
+[![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen?style=for-the-badge)](#requirements)
+[![Claude Code](https://img.shields.io/badge/Claude%20Code-skill-D97757?style=for-the-badge)](https://docs.claude.com/en/docs/claude-code/skills)
+[![Hermes Agent](https://img.shields.io/badge/Hermes%20Agent-skill-4B3B8F?style=for-the-badge)](https://hermes-agent.nousresearch.com/docs)
+[![pi](https://img.shields.io/badge/pi-extension-2D7D6E?style=for-the-badge)](https://github.com/badlogic/pi-mono)
+[![Agent Skills](https://img.shields.io/badge/Agent%20Skills-spec--compliant-8A2BE2?style=for-the-badge)](https://agentskills.io/)
+
+</div>
 
 ## The problem
 
