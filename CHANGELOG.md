@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`eval/robustness.py`: input-side robustness on the held-out benchmark.** Three arms per case (as written, candidate order rotated, "I'm leaning towards <runner-up>" prepended), top-pick flip rate per arm with Wilson bounds against the base arm's modal outcome, and the mean rating shift on the lean target. Results: `eval/results-robustness-1-before.json`, `eval/results-robustness-2-after.json` (`claude-sonnet-5-5`, 12 cases x 5).
+
+### Changed
+- **A requirement that names an option no longer lets fit differ.** The first robustness run found the agent writing "I'm leaning towards webpack" as a soft requirement "Prefers webpack", which lifted `Undetermined` on 13/20 lean runs of the underspecified cases. `rubric.py` now ignores such a requirement when deciding whether fit may differ; SKILL.md states the rule and `check_trace` enforces it as `LEAN_NOT_A_REQUIREMENT`. Moves toward the leaned option: 14/60 before, 0/59 after.
+- **Known-versus-`null` fit no longer ranks without a stated need.** "fit 90 vs null" with no soft need (or with only a lean) is now `Undetermined`, like a tie; with a real need, the unknown fit still loses on the conservative bound. An `unknown` hard constraint now returns `Undetermined` before the fit-spread check instead of an error. The fit-spread error says to restate an option-naming need without the name.
+- **Choices take optional `aliases`**, so "leaning towards Vite" counts as naming "Vite library mode". `LEAN_NOT_A_REQUIREMENT` now ignores hard requirements, matches labels the agent added during framing and aliases, and skips a lone survivor.
+- **`robustness.py`**: the lean target is never the base arm's modal pick and never comes from an `Undetermined` verdict; rating shift reads only each run's first rubric record and only anchor-level ratings, and is reported as mean and range (the old `ci95` treated shifts sharing one base mean as independent); a perturbation with no usable comparison, or an unknown `--only`, fails the gate instead of passing on 0/0.
+
+### Still failing
+- The 10% robustness gate. After the fix: base 4/55 [0.03, 0.17], permuted 5/58 [0.04, 0.19], lean 10/59 [0.10, 0.28]. Remaining lean flips go to `Undetermined` or to the key answer, not to the lean target, and concentrate in `session-store-single-instance` (5/5 to `Undetermined`) and the two cases whose base runs are themselves unstable (`bundler-specified`, `logs-specified`). The base arm's own disagreement already exceeds what a 10% upper bound allows at n=60.
+
 ## [0.4.0] - 2026-11-11
 
 Answers the 2026-11-11 critique of the README demo ([`docs/review-2026-11-11/`](docs/review-2026-11-11/)).

@@ -1,0 +1,532 @@
+{
+  "base": {
+    "flips": 3,
+    "n": 60,
+    "wilson_lo": 0.017,
+    "wilson_hi": 0.137
+  },
+  "permuted": {
+    "flips": 6,
+    "n": 59,
+    "wilson_lo": 0.047,
+    "wilson_hi": 0.205
+  },
+  "lean": {
+    "flips": 22,
+    "n": 60,
+    "wilson_lo": 0.256,
+    "wilson_hi": 0.493
+  },
+  "lean_toward_target": {
+    "flips": 14,
+    "n": 60,
+    "wilson_lo": 0.144,
+    "wilson_hi": 0.354
+  },
+  "rating_shift": {
+    "mean": 3.7778,
+    "ci95": [
+      2.0592,
+      5.4963
+    ],
+    "n": 60
+  },
+  "per_case": {
+    "broker-underspecified": {
+      "base_mode": "Undetermined",
+      "lean_target": "Apache Pulsar",
+      "base": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "Postgres SKIP LOCKED",
+          "Apache Pulsar",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 2
+      },
+      "rating_shift": [
+        10,
+        10,
+        0,
+        0,
+        0
+      ]
+    },
+    "bundler-underspecified": {
+      "base_mode": "Undetermined",
+      "lean_target": "webpack",
+      "base": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "webpack",
+          "webpack",
+          "webpack",
+          "webpack",
+          "webpack"
+        ],
+        "flips": 5
+      },
+      "rating_shift": [
+        10,
+        10,
+        10,
+        10,
+        20
+      ]
+    },
+    "retry-underspecified": {
+      "base_mode": "Undetermined",
+      "lean_target": "Fixed delay, three attempts",
+      "base": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "Fixed delay, three attempts",
+          "Fixed delay, three attempts",
+          "Undetermined",
+          "Fixed delay, three attempts",
+          "Undetermined"
+        ],
+        "flips": 3
+      },
+      "rating_shift": [
+        10,
+        10,
+        0,
+        10,
+        0
+      ]
+    },
+    "primary-key-underspecified": {
+      "base_mode": "Undetermined",
+      "lean_target": "UUIDv4",
+      "base": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "UUIDv4",
+          "UUIDv4",
+          "UUIDv4",
+          "UUIDv4",
+          "UUIDv4"
+        ],
+        "flips": 5
+      },
+      "rating_shift": [
+        10,
+        10,
+        10,
+        10,
+        10
+      ]
+    },
+    "broker-specified": {
+      "base_mode": "Postgres SKIP LOCKED",
+      "lean_target": "NATS JetStream",
+      "base": {
+        "outcomes": [
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED",
+          "Postgres SKIP LOCKED"
+        ],
+        "flips": 0
+      },
+      "rating_shift": [
+        -7.333333333333333,
+        2.6666666666666665,
+        2.6666666666666665,
+        -10.666666666666666,
+        2.6666666666666665
+      ]
+    },
+    "feature-flags-specified": {
+      "base_mode": "Database table with an admin page",
+      "lean_target": "LaunchDarkly",
+      "base": {
+        "outcomes": [
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page",
+          "Database table with an admin page"
+        ],
+        "flips": 0
+      },
+      "rating_shift": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "session-store-single-instance": {
+      "base_mode": "In-process memory",
+      "lean_target": "DynamoDB sessions",
+      "base": {
+        "outcomes": [
+          "In-process memory",
+          "In-process memory",
+          "In-process memory",
+          "In-process memory",
+          "In-process memory"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "In-process memory",
+          "In-process memory",
+          "In-process memory",
+          "In-process memory",
+          "In-process memory"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 5
+      },
+      "rating_shift": [
+        12.666666666666666,
+        2.6666666666666665,
+        12.666666666666666,
+        12.666666666666666,
+        22.666666666666668
+      ]
+    },
+    "rate-limit-single-instance": {
+      "base_mode": "In-process token bucket",
+      "lean_target": "Postgres counter table",
+      "base": {
+        "outcomes": [
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket",
+          "In-process token bucket"
+        ],
+        "flips": 0
+      },
+      "rating_shift": [
+        0,
+        0,
+        0,
+        0,
+        10
+      ]
+    },
+    "bundler-specified": {
+      "base_mode": "Undetermined",
+      "lean_target": "Vite library mode",
+      "base": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "tsup",
+          "Undetermined"
+        ],
+        "flips": 1
+      },
+      "permuted": {
+        "outcomes": [
+          "Undetermined",
+          "tsup",
+          "Undetermined",
+          "tsup",
+          "Undetermined"
+        ],
+        "flips": 2
+      },
+      "lean": {
+        "outcomes": [
+          "Undetermined",
+          "tsup",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 1
+      },
+      "rating_shift": [
+        4,
+        4,
+        4,
+        4,
+        4
+      ]
+    },
+    "retry-specified": {
+      "base_mode": "No automatic retries",
+      "lean_target": "Fixed delay, three attempts",
+      "base": {
+        "outcomes": [
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries",
+          "No automatic retries"
+        ],
+        "flips": 0
+      },
+      "rating_shift": [
+        -2.6666666666666665,
+        -2.6666666666666665,
+        -2.6666666666666665,
+        -2.6666666666666665,
+        -2.6666666666666665
+      ]
+    },
+    "logs-specified": {
+      "base_mode": "Undetermined",
+      "lean_target": "Files on the pod filesystem",
+      "base": {
+        "outcomes": [
+          "Stdout to the cluster collector",
+          "Undetermined",
+          "Undetermined",
+          "Undetermined",
+          "Stdout to the cluster collector"
+        ],
+        "flips": 2
+      },
+      "permuted": {
+        "outcomes": [
+          "Undetermined",
+          "Stdout to the cluster collector",
+          "Stdout to the cluster collector",
+          "Stdout to the cluster collector",
+          "Stdout to the cluster collector"
+        ],
+        "flips": 4
+      },
+      "lean": {
+        "outcomes": [
+          "Undetermined",
+          "Undetermined",
+          "Stdout to the cluster collector",
+          "Undetermined",
+          "Undetermined"
+        ],
+        "flips": 1
+      },
+      "rating_shift": [
+        8,
+        -15.333333333333334,
+        -2,
+        -2,
+        8
+      ]
+    },
+    "primary-key-specified": {
+      "base_mode": "ULID",
+      "lean_target": "UUIDv4",
+      "base": {
+        "outcomes": [
+          "ULID",
+          "ULID",
+          "ULID",
+          "ULID",
+          "ULID"
+        ],
+        "flips": 0
+      },
+      "permuted": {
+        "outcomes": [
+          "ULID",
+          "ULID",
+          "ULID",
+          "ULID",
+          "ULID"
+        ],
+        "flips": 0
+      },
+      "lean": {
+        "outcomes": [
+          "ULID",
+          "ULID",
+          "ULID",
+          "ULID",
+          "ULID"
+        ],
+        "flips": 0
+      },
+      "rating_shift": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "meta": {
+    "model": "claude driver default",
+    "repeat": 5,
+    "traces": "(local, not committed)"
+  }
+}
