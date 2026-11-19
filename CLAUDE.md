@@ -16,7 +16,8 @@ python3 $S/test_rubric.py                  # unit tests (no framework; runs ever
 python3 $S/eval/check_trace.py             # offline protocol assertions over fixtures.json
 python3 $S/test_skill_contract.py          # SKILL.md wording <-> check_trace RULES, plus the rule mutation test
 python3 $S/test_install_contract.py        # README install commands
-python3 docs/demo/test_demo_contract.py    # README hero lines are real rubric output (re-render: python3 docs/demo/render.py)
+python3 docs/demo/test_demo_contract.py    # README hero lines are real rubric output + WCAG contrast (re-render: python3 docs/demo/render.py --png, needs Chromium)
+python3 docs/demo/check_raster.py          # OCR legibility of the hero PNGs at README/phone size (local only: magick + tesseract)
 python3 .github/scripts/stdlib_only.py     # no import outside the stdlib, dynamic imports included
 python3 .github/scripts/test_stdlib_only.py   # the import checker itself catches every shape
 ruff check --select E4,E7,E9,F $S .github/scripts   # lint, same rule set as CI

@@ -7,11 +7,14 @@ The name comes from the stability check: tiltrank tilts the weights a few hundre
 Works as a skill in **Claude Code**, **Hermes Agent**, and **pi**. Pure Python, no dependencies.
 
 <p align="center">
-  <!-- docs/demo.png is a 2x raster of docs/demo.svg; the SVG's lines are
-       checked against real rubric.py output by test_demo_contract.py.
-       Regenerate: python3 docs/demo/render.py &&
-       rsvg-convert -w 1800 docs/demo.svg -o docs/demo.png -->
+  <!-- docs/demo.png and docs/demo-light.png are 2x rasters of docs/demo.svg
+       and docs/demo-light.svg; the SVGs' rubric lines are checked against
+       real rubric.py output by test_demo_contract.py.
+       Regenerate: python3 docs/demo/render.py --png -->
+  <picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/demo-light.png">
   <img src="docs/demo.png" alt="tiltrank in a Claude Code session: the first run comes back Undetermined and asks two clarifying questions; the second run ranks signed cookies first with the lead holding on every rating, excludes the managed SaaS for failing the self-hosted requirement, and an ADR records the pick" width="900">
+  </picture>
 </p>
 
 The image is generated from [`docs/demo/payload.json`](docs/demo/payload.json)
@@ -315,7 +318,7 @@ The net result was deleting two of the three original scripts.
         ├── scenarios.json   dev-set scenarios for --live runs
         ├── benchmark.json   held-out benchmark key (frozen; nobody tunes against it)
         └── baseline.json    benchmark results on the pre-0.4.0 engine
-docs/demo/               hero payloads, renderer and its contract test
+docs/demo/               hero payloads, renderer, font subset, contract test and OCR check
 extensions/tiltrank.ts   pi menu tool and /panel
 ```
 
